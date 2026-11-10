@@ -5,7 +5,7 @@ import json
 import re
 import difflib
 import streamlit as st
-from session_inputs import SessionInputs, retain_inputs
+from session_inputs import SessionInputs, retain_inputs, retain_hidden_inputs, rerun_with_retained_inputs
 
 st.set_page_config(page_title='Forces HQ | Career, Money & Policy', page_icon='🛡️', layout='wide', initial_sidebar_state='collapsed')
 retain_inputs()
@@ -269,7 +269,7 @@ elif page==PAGES[1]:
   # Draft widgets have separate keys; apply only a valid, explicitly saved profile.
   st.session_state.profile={**p,'service':service,'rank':rank,'cap_badge':cap.strip() or 'Not specified','trade':trade.strip() or 'Not specified','years':years,'report':report,'transfer_history':transfer,'pay_supplement':band if isinstance(band,int) else None,'pay_increment':point if isinstance(point,int) else None,'verified_pensionable_salary':float(salary) if salary>0 else None,'salary_verified':bool(sal_check and salary>0),'specialist_pay':specialist,'posting':posting,'family':family,'added_pension':added,'join_date':join_date if join_date_set else None,'join_date_set':join_date_set,'dob':dob if dob_set else None,'dob_set':dob_set,'employment_type':employment,'posting_location':posting_location.strip(),'expected_posting_location':expected_posting_location.strip(),'family_status':family_status,'dependent_count':dep_count,'dependent_ages':dep_ages.strip(),'accommodation_type':accom,'pension_schemes':schemes,'planned_exit':exit_date if exit_set else None,'planned_exit_set':exit_set,'family':'Dependants / children' if dep_count>0 else family}
   st.session_state.profile_saved=True
-  st.rerun()
+  rerun_with_retained_inputs()
  st.markdown('#### Promotion and career timeline')
  st.caption('Add fictional dated promotions. Dates provide context; they do not calculate past pay, pension schemes or qualifying service.')
  with st.container(border=True):
@@ -278,14 +278,17 @@ elif page==PAGES[1]:
   with y: hist_date=ui.date_input('Effective date of rank',value=date(2020,1,1),min_value=date(1960,1,1),max_value=date.today())
   hist_note=ui.text_input('Optional non-identifying milestone (course, posting, qualification)')
   if st.button('Add dated milestone',use_container_width=True):
-   st.session_state.profile.setdefault('rank_history',[]).append({'rank':hist_rank,'date':hist_date.isoformat(),'note':hist_note.strip()})
-   st.session_state.profile['rank_history'].sort(key=lambda e:e['date'])
-   ui.clear('Rank attained','Effective date of rank','Optional non-identifying milestone (course, posting, qualification)')
-   st.rerun()
+   if hist_date is None:st.error('Choose an effective date of rank before adding a promotion milestone.')
+   elif p.get('join_date') and hist_date<p['join_date']:st.error('The promotion date cannot be before the enlistment date in your linked profile.')
+   else:
+    st.session_state.profile.setdefault('rank_history',[]).append({'rank':hist_rank,'date':hist_date.isoformat(),'note':hist_note.strip()})
+    st.session_state.profile['rank_history'].sort(key=lambda e:e['date'])
+    ui.clear('Rank attained','Effective date of rank','Optional non-identifying milestone (course, posting, qualification)')
+    rerun_with_retained_inputs()
  for j,item in enumerate(p.get('rank_history',[])):
   ca,cb=st.columns([5,1]);ca.write(f"**{item['rank']}** — {item['date']}"+(f" · {item['note']}" if item.get('note') else ''))
   if cb.button('Remove',key=f'del_rank_{j}'):
-   st.session_state.profile['rank_history'].pop(j);st.rerun()
+   st.session_state.profile['rank_history'].pop(j);rerun_with_retained_inputs()
  if p.get('rank_history') and p['rank_history'][-1]['rank']!=p['rank']:
   st.info('Your latest timeline rank differs from your selected current rank. Confirm both before using this profile.')
  st.info('Cap badge alone does NOT determine supplement, pensionable pay or allowances. Confirm trade/pay point and specialist eligibility individually. Service changes, breaks and legacy scheme membership require official history before pension forecasting.')
@@ -405,12 +408,14 @@ elif page==PAGES[5]:
   label=ui.selectbox('Milestone',['Objectives agreed','MPAR','SJAR / OJAR drafting','SJAR / OJAR submission','Promotion / board window (verify)','Course / qualification','Posting / assignment','Other'])
   due=ui.date_input('Your confirmed date',date.today()+timedelta(days=60))
   if st.button('Add milestone'):
-   st.session_state.events.append({'label':label,'date':due})
-   ui.clear('Milestone','Your confirmed date')
-   st.rerun()
+   if due is None:st.error('Choose a confirmed date before adding a career milestone.')
+   else:
+    st.session_state.events.append({'label':label,'date':due})
+    ui.clear('Milestone','Your confirmed date')
+    rerun_with_retained_inputs()
  for i,event in enumerate(st.session_state.events):
   a,b=st.columns([5,1]);a.write(f"**{event['label']}** — {event['date']:%d %b %Y} ({(event['date']-date.today()).days} days)")
-  if b.button('Remove',key=f'del{i}'):st.session_state.events.pop(i);st.rerun()
+  if b.button('Remove',key=f'del{i}'):st.session_state.events.pop(i);rerun_with_retained_inputs()
  if not st.session_state.events:st.info('No personal milestones entered yet.')
  st.markdown('**Appraisal guidance:** Refer to your latest authorised JSP 757 and single-Service reporting instructions. For this demo, do not upload official reports.')
 
@@ -425,7 +430,7 @@ elif page==PAGES[6]:
    if action.strip() and result.strip():
     st.session_state.records.append({'action':action.strip(),'result':result.strip(),'theme':theme})
     ui.clear('What did you do?','What changed? Include evidence you could verify.','Development theme')
-    st.rerun()
+    rerun_with_retained_inputs()
    else:st.error('Please provide both the action and the result.')
  if st.session_state.records:
   mode=ui.radio('Output style',['SJAR / OJAR evidence','MPAR preparation','Promotion evidence'],horizontal=True)
@@ -450,7 +455,7 @@ elif page==PAGES[6]:
   if st.button('Clear practice examples'):
    st.session_state.records=[]
    ui.clear(*('draft_'+style for style in ['SJAR / OJAR evidence','MPAR preparation','Promotion evidence']))
-   st.rerun()
+   rerun_with_retained_inputs()
   st.markdown('#### Evidence quality review')
   for e in st.session_state.records:
    st.write(f"**{e['theme']}** — "+ ('✅ Numbers included' if any(ch.isdigit() for ch in e['result']) else '⚠️ Consider adding verifiable measurements if available'))
@@ -576,3 +581,4 @@ elif page==PAGES[8]:
 
 st.divider()
 st.caption('Forces HQ V0.8 • Independent educational prototype • No database, real AI, account login, full-text JSP search, official pension calculations, reminders or JPA integration')
+retain_hidden_inputs()

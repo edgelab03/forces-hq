@@ -36,6 +36,10 @@ async function main() {
         ...(width < 640 ? { userAgent: 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36' } : {}),
       });
       const page = await context.newPage();
+      if (process.env.BROWSER_CPU_RATE) {
+        const session = await context.newCDPSession(page);
+        await session.send('Emulation.setCPUThrottlingRate', { rate: Number(process.env.BROWSER_CPU_RATE) });
+      }
       await page.goto(url);
       await settled(page);
       for (let index = 0; index < sections.length; index++) {
@@ -75,6 +79,22 @@ async function main() {
       await page.getByRole('button', { name: 'Add practice achievement', exact: true }).click();
       const draft = page.getByRole('textbox', { name: 'Editable draft — review all claims before use', exact: true });
       await draft.waitFor();
+      // Deliberately do not wait between blur-triggered reruns. Active fields
+      // must retain new typing while an earlier field's response is in flight.
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const action = page.getByRole('textbox', { name: 'What did you do?', exact: true });
+        const result = page.getByRole('textbox', { name: 'What changed? Include evidence you could verify.', exact: true });
+        const expected = `Rapid fictional achievement ${attempt}`;
+        await action.fill(expected);
+        await action.press('Tab');
+        await result.fill(`Verified fictional result ${attempt}`);
+        await result.press('Tab');
+        await page.getByRole('button', { name: 'Add practice achievement', exact: true }).click();
+        await page.waitForFunction(text => {
+          const input = document.querySelector('textarea[aria-label="Editable draft — review all claims before use"]');
+          return input && input.value.includes(text);
+        }, expected);
+      }
       await draft.fill('Reviewed fictional draft for download');
       await draft.press('Tab');
       await settled(page);
@@ -89,7 +109,7 @@ async function main() {
       await section(page, 0);
       await page.locator('[data-testid="stMain"]').evaluate(el => { el.scrollTop = 0; });
       await page.screenshot({ path: path.join(artifacts, `dashboard-${width}.png`) });
-      console.log(`PASS ${width}px: all nine pages, sticky navigation, retained income and draft, reactive date control, exact edited download`);
+      console.log(`PASS ${width}px: all nine pages, sticky navigation, retained income and draft, reactive date control, rapid achievement entry, exact edited download`);
       await context.close();
     }
   } finally {

@@ -146,6 +146,75 @@ class AppRegressionTests(unittest.TestCase):
         self.field('text_area', 'What changed? Include evidence you could verify.').input('Trained 12 fictional people').run()
         self.click('Add practice achievement')
 
+    def test_promotion_before_enlistment_is_rejected_without_changing_timeline(self):
+        self.page(1)
+        self.field('checkbox', 'Record enlistment date').check().run()
+        self.field('date_input', 'Date joined').set_value(date(2010, 1, 1)).run()
+        self.click('Update linked demo profile')
+        self.field('date_input', 'Effective date of rank').set_value(date(2015, 1, 1)).run()
+        self.click('Add dated milestone')
+        saved = list(self.app.session_state.profile['rank_history'])
+        self.field('date_input', 'Effective date of rank').set_value(date(2009, 12, 31)).run()
+        self.click('Add dated milestone')
+        self.assertTrue(any('cannot be before the enlistment date' in e.value for e in self.app.error))
+        self.assertEqual(self.app.session_state.profile['rank_history'], saved)
+        self.assertEqual(self.field('date_input', 'Effective date of rank').value, date(2009, 12, 31))
+        self.field('date_input', 'Effective date of rank').set_value(date(2010, 1, 1)).run()
+        self.click('Add dated milestone')
+        self.assertEqual(len(self.app.session_state.profile['rank_history']), 2)
+        self.round_trip(1)
+
+    def test_empty_promotion_date_is_rejected_and_can_be_corrected(self):
+        self.page(1)
+        self.field('date_input', 'Effective date of rank').set_value(None).run()
+        self.click('Add dated milestone')
+        self.assertTrue(any('Choose an effective date of rank' in e.value for e in self.app.error))
+        self.assertEqual(self.app.session_state.profile['rank_history'], [])
+        self.field('date_input', 'Effective date of rank').set_value(date(2020, 1, 1)).run()
+        self.click('Add dated milestone')
+        self.assertEqual(len(self.app.session_state.profile['rank_history']), 1)
+
+    def test_empty_career_date_does_not_poison_session(self):
+        self.page(5)
+        self.click('Add milestone')
+        saved = list(self.app.session_state.events)
+        self.field('date_input', 'Your confirmed date').set_value(None).run()
+        self.click('Add milestone')
+        self.assertTrue(any('Choose a confirmed date' in e.value for e in self.app.error))
+        self.assertEqual(self.app.session_state.events, saved)
+        self.round_trip(5)
+        self.field('date_input', 'Your confirmed date').set_value(date(2030, 1, 1)).run()
+        self.click('Add milestone')
+        self.assertEqual(len(self.app.session_state.events), 2)
+
+    def test_all_enabled_optional_profile_dates_require_a_value(self):
+        self.page(1)
+        for flag, label, message in [
+            ('Record enlistment date', 'Date joined', 'Choose a date joined'),
+            ('Record birth date', 'Date of birth', 'Choose a birth date'),
+            ('Record planned leaving date', 'Planned exit', 'Choose a planned leaving date'),
+        ]:
+            with self.subTest(date=label):
+                self.field('checkbox', flag).check().run()
+                self.field('date_input', label).set_value(None).run()
+                self.click('Update linked demo profile')
+                self.assertTrue(any(message in e.value for e in self.app.error))
+                self.assertIsNone(self.app.session_state.profile['join_date'])
+                self.assertIsNone(self.app.session_state.profile['dob'])
+                self.assertIsNone(self.app.session_state.profile['planned_exit'])
+                self.field('checkbox', flag).uncheck().run()
+        self.click('Update linked demo profile')
+        self.assertEqual(len(self.app.error), 0)
+
+    def test_editing_a_field_does_not_force_stale_values_into_active_inputs(self):
+        self.page(6)
+        self.field('text_area', 'What did you do?').input('Led a fictional exercise').run()
+        for label in ['What did you do?', 'What changed? Include evidence you could verify.']:
+            self.assertFalse(self.field('text_area', label).proto.set_value,
+                             'Active inputs must not receive forced values during another field’s rerun')
+        self.round_trip(6)
+        self.assertEqual(self.field('text_area', 'What did you do?').value, 'Led a fictional exercise')
+
     def test_achievement_drafts_and_styles_preserve_edits(self):
         self.page(6)
         self.field('text_area', 'What did you do?').input('Unsubmitted fictional example').run()
