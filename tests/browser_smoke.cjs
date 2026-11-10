@@ -1,0 +1,99 @@
+/* Run against a local server with Playwright and Chromium installed. */
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { chromium } = require('playwright');
+
+const url = process.env.APP_URL || 'http://127.0.0.1:8502';
+const artifacts = process.env.ARTIFACT_DIR || '/tmp/forces-hq-phase1';
+const sections = ['🏠 Dashboard', '🎖️ My profile', '💷 My money', '🎯 Entitlements',
+  '📚 JSP finder', '📅 My career', '✍️ Achievement assistant', '🏡 Life & future', '🏦 Pension planner'];
+const headings = ['Your military life, in one place', '🎖️ My military profile', '💷 My money',
+  '🎯 Entitlements explorer', '🔎 Ask Forces HQ', '📅 Career & reporting milestones',
+  '✍️ Achievement & appraisal preparation', '🏡 Military life & future', '🏦 Armed Forces pension planning'];
+
+async function settled(page) {
+  await page.getByText('Forces HQ V0.8 •', { exact: false }).waitFor();
+  await page.waitForFunction(() => document.querySelectorAll('[data-testid="stSkeleton"]').length === 0);
+  assert.equal(await page.locator('[data-testid="stException"]').count(), 0);
+}
+async function section(page, index) {
+  await page.getByRole('combobox', { name: 'Go to section', exact: true }).click();
+  await page.getByRole('option', { name: sections[index], exact: true }).click();
+  await page.getByRole('heading', { name: headings[index], exact: true }).waitFor();
+  await settled(page);
+}
+async function main() {
+  fs.mkdirSync(artifacts, { recursive: true });
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium',
+    headless: true, args: ['--no-sandbox'],
+  });
+  try {
+    for (const width of [360, 390, 1280]) {
+      const context = await browser.newContext({
+        viewport: { width, height: 844 }, isMobile: width < 640, hasTouch: width < 640,
+        ...(width < 640 ? { userAgent: 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36' } : {}),
+      });
+      const page = await context.newPage();
+      await page.goto(url);
+      await settled(page);
+      for (let index = 0; index < sections.length; index++) {
+        await section(page, index);
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false,
+          `Horizontal document overflow at ${width}px: ${sections[index]}`);
+        console.log(`PASS ${width}px section: ${sections[index]}`);
+        // Streamlit scrolls inside its main panel rather than the document.
+        await page.locator('[data-testid="stMain"]').evaluate(el => { el.scrollTop = el.scrollHeight; });
+        const box = await page.locator('.st-key-app_navigation').boundingBox();
+        assert.ok(box && box.y >= 48 && box.y + box.height < 844,
+          `Navigation left the screen at ${width}px: ${sections[index]} (${JSON.stringify(box)})`);
+      }
+      await section(page, 2);
+      const income = page.getByRole('spinbutton', { name: 'Monthly take-home income (£)', exact: true });
+      await income.fill('3500');
+      await income.press('Tab');
+      await page.getByText('£1,250', { exact: true }).waitFor();
+      await section(page, 0);
+      await section(page, 2);
+      assert.equal(await income.inputValue(), '3500');
+      await section(page, 1);
+      const join = page.getByLabel('Date joined', { exact: true });
+      assert.equal(await join.isDisabled(), true);
+      const joinId = await join.getAttribute('id');
+      await page.getByText('Record enlistment date', { exact: true }).click();
+      await page.waitForFunction(id => {
+        const input = document.getElementById(id);
+        return input && !input.disabled;
+      }, joinId);
+      await settled(page);
+      await section(page, 6);
+      await page.getByRole('textbox', { name: 'What did you do?', exact: true }).fill('Led a fictional exercise');
+      await page.getByRole('textbox', { name: 'What did you do?', exact: true }).press('Tab');
+      await page.getByRole('textbox', { name: 'What changed? Include evidence you could verify.', exact: true }).fill('Trained 12 fictional people');
+      await page.getByRole('textbox', { name: 'What changed? Include evidence you could verify.', exact: true }).press('Tab');
+      await page.getByRole('button', { name: 'Add practice achievement', exact: true }).click();
+      const draft = page.getByRole('textbox', { name: 'Editable draft — review all claims before use', exact: true });
+      await draft.waitFor();
+      await draft.fill('Reviewed fictional draft for download');
+      await draft.press('Tab');
+      await settled(page);
+      await section(page, 0);
+      await section(page, 6);
+      assert.equal(await draft.inputValue(), 'Reviewed fictional draft for download');
+      const downloadEvent = page.waitForEvent('download');
+      await page.getByRole('button', { name: 'Download practice draft', exact: true }).click();
+      const download = await downloadEvent;
+      assert.equal(fs.readFileSync(await download.path(), 'utf8'), 'Reviewed fictional draft for download');
+      await page.screenshot({ path: path.join(artifacts, `achievement-${width}.png`) });
+      await section(page, 0);
+      await page.locator('[data-testid="stMain"]').evaluate(el => { el.scrollTop = 0; });
+      await page.screenshot({ path: path.join(artifacts, `dashboard-${width}.png`) });
+      console.log(`PASS ${width}px: all nine pages, sticky navigation, retained income and draft, reactive date control, exact edited download`);
+      await context.close();
+    }
+  } finally {
+    await browser.close();
+  }
+}
+main().catch(error => { console.error(error); process.exitCode = 1; });
