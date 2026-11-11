@@ -5,8 +5,10 @@ import json
 import re
 import difflib
 import streamlit as st
+from session_inputs import SessionInputs, retain_inputs, retain_hidden_inputs, rerun_with_retained_inputs
 
 st.set_page_config(page_title='Forces HQ | Career, Money & Policy', page_icon='🛡️', layout='wide', initial_sidebar_state='collapsed')
+retain_inputs()
 st.markdown('''<style>
 .stApp{background:linear-gradient(150deg,#0b1425,#101d32);color:#e8eff9}
 [data-testid="stSidebar"]{background:#0a182c}
@@ -16,6 +18,27 @@ st.markdown('''<style>
 .tile small{color:#afd0eb}.tile strong{display:block;color:white;font-size:1.55rem;margin-top:7px}
 a{color:#82d7ff!important}.guide{padding:16px;border-radius:14px;background:#122c42;border:1px solid #356179;margin:12px 0}.guide h4{color:#fff;margin:0 0 8px 0}.guide p{color:#d4e5f3;margin:0}
 div.stButton > button {min-height:58px;border-radius:14px;font-size:1.02rem;font-weight:650;border:1px solid #45688b;background:#16324e;color:#f7fbff;} div.stButton > button:hover {background:#235075;border-color:#90c9f1;} @media(max-width:600px){.hero{padding:15px}.hero h1{font-size:1.6rem}.tile strong{font-size:1.17rem}}
+.stMainBlockContainer{max-width:1200px;padding-top:1.5rem;padding-bottom:3rem}
+[data-testid="stMain"] input,[data-testid="stMain"] textarea,[data-testid="stMain"] button,[data-testid="stMain"] label{scroll-margin-top:12rem}
+/* Streamlit wraps containers: stick the wrapper, not its height-limited child. */
+div:has(>.st-key-app_navigation){position:sticky;top:3.75rem;z-index:100}
+.st-key-app_navigation{background:#0b1425;border:1px solid #365374;border-radius:14px;padding:12px 16px;box-shadow:0 6px 20px #0005}
+.st-key-app_navigation p{margin-bottom:0}
+.st-key-app_navigation input{scroll-margin-top:0}
+[data-testid="stMetricValue"]{white-space:normal;overflow-wrap:anywhere;font-size:1.6rem}
+[data-testid="stTextInput"] input,[data-testid="stNumberInput"] input,[data-testid="stDateInput"] input,textarea{font-size:16px!important}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #70c8f5!important;outline-offset:3px}
+@media(max-width:640px){
+ .stMainBlockContainer{padding:1rem .85rem 2rem}
+ .st-key-app_navigation{padding:8px 12px}
+ .st-key-app_navigation [data-testid="stCaptionContainer"]{display:none}
+ [data-testid="stHorizontalBlock"]{flex-direction:column;gap:.65rem}
+ [data-testid="stHorizontalBlock"]>[data-testid="stColumn"]{width:100%!important;flex:1 1 auto!important;min-width:0!important}
+ div.stButton>button,[data-testid="stDownloadButton"] button,[data-testid="stLinkButton"] a{min-height:48px;width:100%}
+ .tile{min-height:0;padding:12px}
+ .hero h1{font-size:1.5rem}
+ [data-testid="stMetricValue"]{font-size:1.35rem}
+}
 </style>''',unsafe_allow_html=True)
 
 POLICIES=[
@@ -59,18 +82,28 @@ if 'budget' not in st.session_state:st.session_state.budget={}
 PAGES=['🏠 Dashboard','🎖️ My profile','💷 My money','🎯 Entitlements','📚 JSP finder','📅 My career','✍️ Achievement assistant','🏡 Life & future','🏦 Pension planner']
 if 'nav_page' not in st.session_state:st.session_state.nav_page=PAGES[0]
 if st.session_state.nav_page not in PAGES:st.session_state.nav_page=PAGES[0]
+st.session_state.setdefault('nav_sidebar',st.session_state.nav_page)
+st.session_state.setdefault('nav_top',st.session_state.nav_page)
 def navigate(destination):
  st.session_state.nav_page=destination
  st.session_state.nav_sidebar=destination
+ st.session_state.nav_top=destination
+
+def change_section(source):
+ navigate(st.session_state[source])
 
 with st.sidebar:
  st.title('🛡️ FORCES HQ')
- st.caption('Career • Money • Policy | V0.7')
- st.selectbox('Quick navigation',PAGES,index=PAGES.index(st.session_state.nav_page),key='nav_sidebar',on_change=lambda:st.session_state.update(nav_page=st.session_state.nav_sidebar))
+ st.caption('Career • Money • Policy | V0.8')
+ st.selectbox('Quick navigation',PAGES,key='nav_sidebar',on_change=change_section,args=('nav_sidebar',))
  st.divider()
  st.warning('PUBLIC BETA: use fictional/non-identifying data only. There is no login, protected storage or persistent account. Do not enter real names, service numbers, official assessments or identifiable family details.')
  st.caption('Independent educational prototype; not an official MOD service.')
+with st.container(key='app_navigation'):
+ st.selectbox('Go to section',PAGES,key='nav_top',on_change=change_section,args=('nav_top',))
+ st.caption('Your entries stay in this session when you change sections.')
 page=st.session_state.nav_page
+ui=SessionInputs(page)
 st.markdown('<div class="hero"><h1>🛡️ Forces HQ</h1><p>Make sense of military money, benefits, policy and career decisions.</p></div>',unsafe_allow_html=True)
 p=st.session_state.profile
 
@@ -178,70 +211,84 @@ if page==PAGES[0]:
 
 elif page==PAGES[1]:
  st.subheader('🎖️ My military profile')
+ if st.session_state.pop('profile_saved',False):st.success('Linked profile updated for this session. Other sections will use your choices.')
  st.caption('One linked test profile powers the dashboard, pay lookup, pension inputs and relevant guidance. Please use fictional/non-identifying data in this public demo.')
  ranks=['Private / equivalent','Lance Corporal / equivalent','Corporal / equivalent','Sergeant','Staff Sergeant','Warrant Officer','Commissioned Officer']
  services=['British Army','Royal Navy','Royal Air Force','Royal Marines']
  def choose_index(items,value):return items.index(value) if value in items else 0
- with st.form('profile_v06',clear_on_submit=False):
+ with st.container(border=True):
+  st.caption('Draft changes stay in this session. Select Update linked demo profile to apply them to other sections.')
   a,b=st.columns(2)
   with a:
-   service=st.selectbox('Service',services,index=choose_index(services,p['service']),key='v06_service')
-   rank=st.selectbox('Rank',ranks,index=choose_index(ranks,p['rank']),key='v06_rank')
-   cap=st.text_input('Cap badge / branch (optional)',value=p['cap_badge'] if p['cap_badge']!='Not specified' else '',key='v06_cap')
-   trade=st.text_input('Trade / role (optional)',value=p['trade'] if p['trade']!='Not specified' else '',key='v06_trade')
-   years=st.number_input('Completed qualifying years (self-reported)',0,45,int(p['years']),key='v06_years')
-   report=st.selectbox('Appraisal type',['SJAR','OJAR'],index=choose_index(['SJAR','OJAR'],p['report']),key='v06_report')
-   transfer=st.selectbox('Service history', ['None / not recorded','Transfer / break in service','Commissioned from ranks','Other history — check statement'],index=choose_index(['None / not recorded','Transfer / break in service','Commissioned from ranks','Other history — check statement'],p['transfer_history']),key='v06_transfer')
+   service=ui.selectbox('Service',services,index=choose_index(services,p['service']),key='v06_service')
+   rank=ui.selectbox('Rank',ranks,index=choose_index(ranks,p['rank']),key='v06_rank')
+   cap=ui.text_input('Cap badge / branch (optional)',value=p['cap_badge'] if p['cap_badge']!='Not specified' else '',key='v06_cap')
+   trade=ui.text_input('Trade / role (optional)',value=p['trade'] if p['trade']!='Not specified' else '',key='v06_trade')
+   years=ui.number_input('Completed qualifying years (self-reported)',0,45,int(p['years']),key='v06_years')
+   report=ui.selectbox('Appraisal type',['SJAR','OJAR'],index=choose_index(['SJAR','OJAR'],p['report']),key='v06_report')
+   transfer=ui.selectbox('Service history', ['None / not recorded','Transfer / break in service','Commissioned from ranks','Other history — check statement'],index=choose_index(['None / not recorded','Transfer / break in service','Commissioned from ranks','Other history — check statement'],p['transfer_history']),key='v06_transfer')
   with b:
    band_options=['Not selected',1,2,3,4]
    band_default=p['pay_supplement'] if p['pay_supplement'] in band_options else 'Not selected'
-   band=st.selectbox('Trade supplement',band_options,index=choose_index(band_options,band_default),key='v06_band')
-   point=st.selectbox('Increment / level',['Not selected']+list(range(1,21)),index=choose_index(['Not selected']+list(range(1,21)),p['pay_increment']),key='v06_point')
-   salary=st.number_input('Verified annual pensionable earnings (£) — optional',0,300000,int(p['verified_pensionable_salary'] or 0),step=100,key='v06_salary',help='Use only confirmed pensionable earnings. A gross payslip total may include non-pensionable allowances.')
-   sal_check=st.checkbox('I have checked this pensionable earnings amount against official documentation',value=bool(p['salary_verified']),key='v06_salary_checked')
-   specialist=st.selectbox('Specialist pay', ['Not specified','None','SF-related payment','Recruitment and Retention Pay','Other'],index=choose_index(['Not specified','None','SF-related payment','Recruitment and Retention Pay','Other'],p['specialist_pay']),key='v06_special')
-   posting=st.selectbox('Posting circumstances',['Not specified','No planned move','Upcoming assignment / move'],index=choose_index(['Not specified','No planned move','Upcoming assignment / move'],p['posting']),key='v06_posting')
-   family=st.selectbox('Family circumstances',['Not specified','No dependants recorded','Dependants / children'],index=choose_index(['Not specified','No dependants recorded','Dependants / children'],p['family']),key='v06_family')
-   added=st.selectbox('AFPS Added Pension',['Not recorded','No contract','Purchased / active contract','Not sure'],index=choose_index(['Not recorded','No contract','Purchased / active contract','Not sure'],p['added_pension']),key='v06_added')
+   band=ui.selectbox('Trade supplement',band_options,index=choose_index(band_options,band_default),key='v06_band')
+   point=ui.selectbox('Increment / level',['Not selected']+list(range(1,21)),index=choose_index(['Not selected']+list(range(1,21)),p['pay_increment']),key='v06_point')
+   salary=ui.number_input('Verified annual pensionable earnings (£) — optional',0,300000,int(p['verified_pensionable_salary'] or 0),step=100,key='v06_salary',help='Use only confirmed pensionable earnings. A gross payslip total may include non-pensionable allowances.')
+   sal_check=ui.checkbox('I have checked this pensionable earnings amount against official documentation',value=bool(p['salary_verified']),key='v06_salary_checked')
+   specialist=ui.selectbox('Specialist pay', ['Not specified','None','SF-related payment','Recruitment and Retention Pay','Other'],index=choose_index(['Not specified','None','SF-related payment','Recruitment and Retention Pay','Other'],p['specialist_pay']),key='v06_special')
+   posting=ui.selectbox('Posting circumstances',['Not specified','No planned move','Upcoming assignment / move'],index=choose_index(['Not specified','No planned move','Upcoming assignment / move'],p['posting']),key='v06_posting')
+   family=ui.selectbox('Family circumstances',['Not specified','No dependants recorded','Dependants / children'],index=choose_index(['Not specified','No dependants recorded','Dependants / children'],p['family']),key='v06_family')
+   added=ui.selectbox('AFPS Added Pension',['Not recorded','No contract','Purchased / active contract','Not sure'],index=choose_index(['Not recorded','No contract','Purchased / active contract','Not sure'],p['added_pension']),key='v06_added')
   st.markdown('#### Optional career and family context (fictional demo details only)')
   c,d=st.columns(2)
   with c:
-   join_date_set=st.checkbox('Record enlistment date',value=bool(p.get('join_date_set') or p.get('join_date')),key='v07_has_join')
-   join_date=st.date_input('Date joined',value=p.get('join_date') or date(2015,9,1),min_value=date(1960,1,1),max_value=date.today(),disabled=not join_date_set,key='v07_join')
-   dob_set=st.checkbox('Record birth date',value=bool(p.get('dob_set') or p.get('dob')),key='v07_has_dob')
-   dob=st.date_input('Date of birth',value=p.get('dob') or date(1990,1,1),min_value=date(1940,1,1),max_value=date.today(),disabled=not dob_set,key='v07_dob')
-   employment=st.selectbox('Service type',['Regular','Reserve','FTRS','Not specified'],index=choose_index(['Regular','Reserve','FTRS','Not specified'],p.get('employment_type','Regular')),key='v07_employment')
-   posting_location=st.text_input('Current posting (general location, optional)',value=p.get('posting_location',''),key='v07_post_loc')
-   expected_posting_location=st.text_input('Next posting / location (optional)',value=p.get('expected_posting_location',''),key='v07_next_loc')
+   join_date_set=ui.checkbox('Record enlistment date',value=bool(p.get('join_date_set') or p.get('join_date')),key='v07_has_join')
+   join_date=ui.date_input('Date joined',value=p.get('join_date'),min_value=date(1960,1,1),max_value=date.today(),disabled=not join_date_set,key='v07_join',format='DD/MM/YYYY')
+   dob_set=ui.checkbox('Record birth date',value=bool(p.get('dob_set') or p.get('dob')),key='v07_has_dob')
+   dob=ui.date_input('Date of birth',value=p.get('dob'),min_value=date(1940,1,1),max_value=date.today(),disabled=not dob_set,key='v07_dob',format='DD/MM/YYYY')
+   employment=ui.selectbox('Service type',['Regular','Reserve','FTRS','Not specified'],index=choose_index(['Regular','Reserve','FTRS','Not specified'],p.get('employment_type','Regular')),key='v07_employment')
+   posting_location=ui.text_input('Current posting (general location, optional)',value=p.get('posting_location',''),key='v07_post_loc')
+   expected_posting_location=ui.text_input('Next posting / location (optional)',value=p.get('expected_posting_location',''),key='v07_next_loc')
   with d:
-   family_status=st.selectbox('Family / relationship status',['Prefer not to say','Single','Married / civil partnership','Partner','Separated / divorced','Widowed'],index=choose_index(['Prefer not to say','Single','Married / civil partnership','Partner','Separated / divorced','Widowed'],p.get('family_status','Prefer not to say')),key='v07_family_status')
-   dep_count=st.number_input('Number of dependants (fictional)',min_value=0,max_value=12,value=int(p.get('dependent_count',0)),key='v07_dep_count')
-   dep_ages=st.text_input('Dependants’ ages (optional, e.g. 8, 12)',value=p.get('dependent_ages',''),key='v07_dep_ages')
-   accom=st.selectbox('Accommodation',['Not specified','SFA','SLA','Private rented','Own home','Substitute accommodation','Other'],index=choose_index(['Not specified','SFA','SLA','Private rented','Own home','Substitute accommodation','Other'],p.get('accommodation_type','Not specified')),key='v07_accom')
-   schemes=st.multiselect('Scheme membership (self-reported; not verified)',['AFPS 75','AFPS 05','AFPS 15','RFPS 05','Not sure'],default=[x for x in p.get('pension_schemes',['Not sure']) if x in ['AFPS 75','AFPS 05','AFPS 15','RFPS 05','Not sure']],key='v07_schemes')
-   exit_set=st.checkbox('Record planned leaving date',value=bool(p.get('planned_exit_set') or p.get('planned_exit')),key='v07_exit_set')
-   exit_date=st.date_input('Planned exit',value=p.get('planned_exit') or date.today()+timedelta(days=365*5),min_value=date.today(),max_value=date(2080,12,31),disabled=not exit_set,key='v07_exit')
-  submitted=st.form_submit_button('Update linked demo profile',use_container_width=True)
- if submitted:
-  # All form widgets have separate keys; update ONLY the independent profile dictionary after submit.
+   family_status=ui.selectbox('Family / relationship status',['Prefer not to say','Single','Married / civil partnership','Partner','Separated / divorced','Widowed'],index=choose_index(['Prefer not to say','Single','Married / civil partnership','Partner','Separated / divorced','Widowed'],p.get('family_status','Prefer not to say')),key='v07_family_status')
+   dep_count=ui.number_input('Number of dependants (fictional)',min_value=0,max_value=12,value=int(p.get('dependent_count',0)),key='v07_dep_count')
+   dep_ages=ui.text_input('Dependants’ ages (optional, e.g. 8, 12)',value=p.get('dependent_ages',''),key='v07_dep_ages')
+   accom=ui.selectbox('Accommodation',['Not specified','SFA','SLA','Private rented','Own home','Substitute accommodation','Other'],index=choose_index(['Not specified','SFA','SLA','Private rented','Own home','Substitute accommodation','Other'],p.get('accommodation_type','Not specified')),key='v07_accom')
+   schemes=ui.multiselect('Scheme membership (self-reported; not verified)',['AFPS 75','AFPS 05','AFPS 15','RFPS 05','Not sure'],default=[x for x in p.get('pension_schemes',['Not sure']) if x in ['AFPS 75','AFPS 05','AFPS 15','RFPS 05','Not sure']],key='v07_schemes')
+   exit_set=ui.checkbox('Record planned leaving date',value=bool(p.get('planned_exit_set') or p.get('planned_exit')),key='v07_exit_set')
+   exit_date=ui.date_input('Planned exit',value=p.get('planned_exit'),min_value=date.today(),max_value=date(2080,12,31),disabled=not exit_set,key='v07_exit',format='DD/MM/YYYY')
+  submitted=st.button('Update linked demo profile',use_container_width=True)
+ profile_errors=[]
+ if join_date_set and join_date is None:profile_errors.append('Choose a date joined, or untick Record enlistment date.')
+ if dob_set and dob is None:profile_errors.append('Choose a birth date, or untick Record birth date.')
+ if exit_set and exit_date is None:profile_errors.append('Choose a planned leaving date, or untick Record planned leaving date.')
+ if dob_set and join_date_set and dob and join_date and dob>=join_date:profile_errors.append('The birth date must be before the enlistment date.')
+ if 'Not sure' in schemes and len(schemes)>1:profile_errors.append('Choose named pension schemes or Not sure, rather than both.')
+ if submitted and profile_errors:
+  for error in profile_errors:st.error(error)
+ if submitted and not profile_errors:
+  # Draft widgets have separate keys; apply only a valid, explicitly saved profile.
   st.session_state.profile={**p,'service':service,'rank':rank,'cap_badge':cap.strip() or 'Not specified','trade':trade.strip() or 'Not specified','years':years,'report':report,'transfer_history':transfer,'pay_supplement':band if isinstance(band,int) else None,'pay_increment':point if isinstance(point,int) else None,'verified_pensionable_salary':float(salary) if salary>0 else None,'salary_verified':bool(sal_check and salary>0),'specialist_pay':specialist,'posting':posting,'family':family,'added_pension':added,'join_date':join_date if join_date_set else None,'join_date_set':join_date_set,'dob':dob if dob_set else None,'dob_set':dob_set,'employment_type':employment,'posting_location':posting_location.strip(),'expected_posting_location':expected_posting_location.strip(),'family_status':family_status,'dependent_count':dep_count,'dependent_ages':dep_ages.strip(),'accommodation_type':accom,'pension_schemes':schemes,'planned_exit':exit_date if exit_set else None,'planned_exit_set':exit_set,'family':'Dependants / children' if dep_count>0 else family}
-  st.success('Linked profile updated for this session. Other sections will use your choices.')
-  st.rerun()
+  st.session_state.profile_saved=True
+  rerun_with_retained_inputs()
  st.markdown('#### Promotion and career timeline')
  st.caption('Add fictional dated promotions. Dates provide context; they do not calculate past pay, pension schemes or qualifying service.')
- with st.form('rank_history_v07',clear_on_submit=True):
+ with st.container(border=True):
   x,y=st.columns(2)
-  hist_rank=x.selectbox('Rank attained',['Private / equivalent','Lance Corporal / equivalent','Corporal / equivalent','Sergeant','Staff Sergeant','Warrant Officer','Commissioned Officer'])
-  hist_date=y.date_input('Effective date of rank',value=date(2020,1,1),min_value=date(1960,1,1),max_value=date.today())
-  hist_note=st.text_input('Optional non-identifying milestone (course, posting, qualification)')
-  if st.form_submit_button('Add dated milestone',use_container_width=True):
-   st.session_state.profile.setdefault('rank_history',[]).append({'rank':hist_rank,'date':hist_date.isoformat(),'note':hist_note.strip()})
-   st.session_state.profile['rank_history'].sort(key=lambda e:e['date'])
-   st.rerun()
+  with x: hist_rank=ui.selectbox('Rank attained',['Private / equivalent','Lance Corporal / equivalent','Corporal / equivalent','Sergeant','Staff Sergeant','Warrant Officer','Commissioned Officer'])
+  with y: hist_date=ui.date_input('Effective date of rank',value=date(2020,1,1),min_value=date(1960,1,1),max_value=date.today())
+  hist_note=ui.text_input('Optional non-identifying milestone (course, posting, qualification)')
+  if st.button('Add dated milestone',use_container_width=True):
+   if hist_date is None:st.error('Choose an effective date of rank before adding a promotion milestone.')
+   elif p.get('join_date') and hist_date<p['join_date']:st.error('The promotion date cannot be before the enlistment date in your linked profile.')
+   else:
+    st.session_state.profile.setdefault('rank_history',[]).append({'rank':hist_rank,'date':hist_date.isoformat(),'note':hist_note.strip()})
+    st.session_state.profile['rank_history'].sort(key=lambda e:e['date'])
+    ui.clear('Rank attained','Effective date of rank','Optional non-identifying milestone (course, posting, qualification)')
+    rerun_with_retained_inputs()
  for j,item in enumerate(p.get('rank_history',[])):
   ca,cb=st.columns([5,1]);ca.write(f"**{item['rank']}** — {item['date']}"+(f" · {item['note']}" if item.get('note') else ''))
   if cb.button('Remove',key=f'del_rank_{j}'):
-   st.session_state.profile['rank_history'].pop(j);st.rerun()
+   st.session_state.profile['rank_history'].pop(j);rerun_with_retained_inputs()
  if p.get('rank_history') and p['rank_history'][-1]['rank']!=p['rank']:
   st.info('Your latest timeline rank differs from your selected current rank. Confirm both before using this profile.')
  st.info('Cap badge alone does NOT determine supplement, pensionable pay or allowances. Confirm trade/pay point and specialist eligibility individually. Service changes, breaks and legacy scheme membership require official history before pension forecasting.')
@@ -253,22 +300,22 @@ elif page==PAGES[2]:
  left,right=st.columns(2)
  with left:
   st.markdown('#### Monthly budget')
-  income=st.number_input('Monthly take-home income (£)',0,30000,2600,50)
-  housing=st.number_input('Housing and essential bills (£)',0,30000,1050,25)
-  food=st.number_input('Food and household (£)',0,10000,400,25)
-  transport=st.number_input('Transport (£)',0,10000,250,25)
-  debts=st.number_input('Debt repayments (£)',0,15000,300,25)
-  leisure=st.number_input('Leisure / other (£)',0,15000,250,25)
+  income=ui.number_input('Monthly take-home income (£)',0,30000,2600,50)
+  housing=ui.number_input('Housing and essential bills (£)',0,30000,1050,25)
+  food=ui.number_input('Food and household (£)',0,10000,400,25)
+  transport=ui.number_input('Transport (£)',0,10000,250,25)
+  debts=ui.number_input('Debt repayments (£)',0,15000,300,25)
+  leisure=ui.number_input('Leisure / other (£)',0,15000,250,25)
   surplus=income-housing-food-transport-debts-leisure
   st.metric('Illustrative monthly surplus',money(surplus))
   if surplus<0:st.error('Illustrative spending exceeds income.')
   elif surplus>0:st.success('This is your unallocated monthly amount, not guaranteed savings.')
  with right:
   st.markdown('#### Savings & investment scenarios')
-  monthly=st.slider('Monthly contribution (£)',0,1500,200,25)
-  years=st.slider('Years',1,35,15)
-  annual=st.slider('Illustrative annual return after fees (%)',0.,10.,5.,.5)
-  inflation=st.slider('Illustrative annual inflation (%)',0.,8.,2.5,.5)
+  monthly=ui.slider('Monthly contribution (£)',0,1500,200,25)
+  years=ui.slider('Years',1,35,15)
+  annual=ui.slider('Illustrative annual return after fees (%)',0.,10.,5.,.5)
+  inflation=ui.slider('Illustrative annual inflation (%)',0.,8.,2.5,.5)
   r=(1+annual/100)**(1/12)-1
   future=monthly*years*12 if r==0 else monthly*((1+r)**(years*12)-1)/r
   st.metric('Future nominal value',money(future))
@@ -284,7 +331,7 @@ elif page==PAGES[3]:
  if p.get('posting')=='Upcoming assignment / move':st.info('Based on your profile: relocation/travel and accommodation guidance may be particularly relevant.')
  if p.get('family')=='Dependants / children' or p.get('dependent_count',0)>0:st.info('Based on your profile: consider family, childcare and education support. Eligibility is not established.')
  situations=['All opportunities','Buying a home','Being posted / moving','Duty travel','Accommodation','Family','Leaving the Services']
- selected=st.selectbox('What is happening in your life?',situations)
+ selected=ui.selectbox('What is happening in your life?',situations)
  shown=OPPORTUNITIES if selected=='All opportunities' else [x for x in OPPORTUNITIES if x['topic']==selected or (selected=='Being posted / moving' and 'posting' in x['keywords'])]
  for x in shown:
   with st.expander(x['name'],expanded=len(shown)<=2):
@@ -298,7 +345,7 @@ elif page==PAGES[3]:
 elif page==PAGES[4]:
  st.subheader('🔎 Ask Forces HQ')
  st.write('**Describe your situation in plain English.** We identify the closest topic, then ask what matters before linking you to the policy. This is curated guidance rather than full-document search.')
- query=st.text_input('What do you need help with?',placeholder='e.g. Can I claim fuel when I drive to my new unit?',key='guided_search')
+ query=ui.text_input('What do you need help with?',placeholder='e.g. Can I claim fuel when I drive to my new unit?',key='guided_search')
  st.caption(f'Profile context (session only): {p["service"]}, {p["rank"]}; these are hints, not eligibility evidence.')
  st.caption('Try: “Claiming fuel”, “My MPAR is due”, “I am moving house”, or “Can I buy extra pension?”')
  if not query.strip():
@@ -320,16 +367,16 @@ elif page==PAGES[4]:
      if pos==0:
       st.markdown('**Quick checks — get a contextual answer:**')
       if g['title']=='Fuel, mileage and travel claims':
-       journey=st.selectbox('What sort of journey was this?',['Please select','Ordinary home-to-work journey','Authorised duty journey','Travel home from an assignment','Moving on assignment'],key='v07_journey')
-       approved=st.selectbox('Was the journey / private vehicle authorised where required?',['Not sure','Yes','No'],key='v07_approved')
-       evidence=st.selectbox('Do you have supporting documents or mileage records?',['Not sure','Yes','No'],key='v07_evidence')
+       journey=ui.selectbox('What sort of journey was this?',['Please select','Ordinary home-to-work journey','Authorised duty journey','Travel home from an assignment','Moving on assignment'],key='v07_journey')
+       approved=ui.selectbox('Was the journey / private vehicle authorised where required?',['Not sure','Yes','No'],key='v07_approved')
+       evidence=ui.selectbox('Do you have supporting documents or mileage records?',['Not sure','Yes','No'],key='v07_evidence')
        decision,why,section=travel_assessment(journey,approved,evidence)
        st.markdown('#### Based on your answers')
        st.info(decision+'\n\n'+why+'\n\n**Relevant section:** '+section)
       else:
        answers=[]
        for idx,question in enumerate(g['ask']):
-        answers.append(st.selectbox(question,['Not sure','Yes','No'],key=f'v07_search_{idx}_{g["title"]}'))
+        answers.append(ui.selectbox(question,['Not sure','Yes','No'],key=f'v07_search_{idx}_{g["title"]}'))
        if all(x=='Yes' for x in answers):st.info('Your answers suggest this policy topic may be relevant. This is **not** a determination of eligibility; confirm the specific requirements and exceptions.')
        elif any(x=='No' for x in answers):st.info('At least one answer may affect eligibility. Check the linked rules and ask your unit specialist about exceptions before claiming.')
        else:st.info('The current answers are not enough to assess eligibility. Use the policy sources below to identify the missing information.')
@@ -348,7 +395,7 @@ elif page==PAGES[4]:
    st.markdown(f'**{x["id"]} — {x["title"]}**')
    st.caption('Source information: '+x['review'])
    st.link_button('Open '+x['id'],x['url'])
- st.caption('V0.7 uses curated guides, conditional responses and verified chapter/section pointers for selected topics. It does not yet extract full JSP text or verify specific paragraph numbers. Never invent a policy quotation.')
+ st.caption('V0.8 uses curated guides, conditional responses and verified chapter/section pointers for selected topics. It does not yet extract full JSP text or verify specific paragraph numbers. Never invent a policy quotation.')
 
 elif page==PAGES[5]:
  st.subheader('📅 Career & reporting milestones')
@@ -357,28 +404,36 @@ elif page==PAGES[5]:
   st.markdown('#### Linked promotion timeline')
   for h in p['rank_history']:st.write(f"• **{h['date']} — {h['rank']}**"+(f" ({h['note']})" if h.get('note') else ''))
  st.write('Enter dates you have independently confirmed. **There is no universal SJAR/OJAR or promotion window assumed here.**')
- with st.form('milestones',clear_on_submit=True):
-  label=st.selectbox('Milestone',['Objectives agreed','MPAR','SJAR / OJAR drafting','SJAR / OJAR submission','Promotion / board window (verify)','Course / qualification','Posting / assignment','Other'])
-  due=st.date_input('Your confirmed date',date.today()+timedelta(days=60))
-  if st.form_submit_button('Add milestone'):st.session_state.events.append({'label':label,'date':due});st.success('Added for this session.')
+ with st.container(border=True):
+  label=ui.selectbox('Milestone',['Objectives agreed','MPAR','SJAR / OJAR drafting','SJAR / OJAR submission','Promotion / board window (verify)','Course / qualification','Posting / assignment','Other'])
+  due=ui.date_input('Your confirmed date',date.today()+timedelta(days=60))
+  if st.button('Add milestone'):
+   if due is None:st.error('Choose a confirmed date before adding a career milestone.')
+   else:
+    st.session_state.events.append({'label':label,'date':due})
+    ui.clear('Milestone','Your confirmed date')
+    rerun_with_retained_inputs()
  for i,event in enumerate(st.session_state.events):
   a,b=st.columns([5,1]);a.write(f"**{event['label']}** — {event['date']:%d %b %Y} ({(event['date']-date.today()).days} days)")
-  if b.button('Remove',key=f'del{i}'):st.session_state.events.pop(i);st.rerun()
+  if b.button('Remove',key=f'del{i}'):st.session_state.events.pop(i);rerun_with_retained_inputs()
  if not st.session_state.events:st.info('No personal milestones entered yet.')
  st.markdown('**Appraisal guidance:** Refer to your latest authorised JSP 757 and single-Service reporting instructions. For this demo, do not upload official reports.')
 
 elif page==PAGES[6]:
  st.subheader('✍️ Achievement & appraisal preparation')
  st.warning('Use fictional, generic or non-sensitive examples only. Do not paste official reports, names, private personnel assessments or restricted material.')
- with st.form('evidence',clear_on_submit=True):
-  action=st.text_area('What did you do?',placeholder='e.g. Planned weekly training for 12 fictional team members')
-  result=st.text_area('What changed? Include evidence you could verify.',placeholder='e.g. Improved attendance from 75% to 95%')
-  theme=st.selectbox('Development theme',['Leadership','Delivery','Planning','Teamwork','Communication','Developing others','Other'])
-  if st.form_submit_button('Add practice achievement'):
-   if action.strip() and result.strip():st.session_state.records.append({'action':action.strip(),'result':result.strip(),'theme':theme});st.success('Practice example added.')
+ with st.container(border=True):
+  action=ui.text_area('What did you do?',placeholder='e.g. Planned weekly training for 12 fictional team members')
+  result=ui.text_area('What changed? Include evidence you could verify.',placeholder='e.g. Improved attendance from 75% to 95%')
+  theme=ui.selectbox('Development theme',['Leadership','Delivery','Planning','Teamwork','Communication','Developing others','Other'])
+  if st.button('Add practice achievement'):
+   if action.strip() and result.strip():
+    st.session_state.records.append({'action':action.strip(),'result':result.strip(),'theme':theme})
+    ui.clear('What did you do?','What changed? Include evidence you could verify.','Development theme')
+    rerun_with_retained_inputs()
    else:st.error('Please provide both the action and the result.')
  if st.session_state.records:
-  mode=st.radio('Output style',['SJAR / OJAR evidence','MPAR preparation','Promotion evidence'],horizontal=True)
+  mode=ui.radio('Output style',['SJAR / OJAR evidence','MPAR preparation','Promotion evidence'],horizontal=True)
   rendered=[]
   for i,e in enumerate(st.session_state.records,1):
    base=f"{e['action'].rstrip('.')} . Outcome: {e['result'].rstrip('.')} .".replace(' .','.')
@@ -387,9 +442,20 @@ elif page==PAGES[6]:
    else:part=f"{i}. Evidence theme: {e['theme']}\n   Contribution: {e['action']}\n   Impact: {e['result']}\n   Reflection: Which greater responsibilities does this genuinely evidence?"
    rendered.append(part)
   output='\n\n'.join(rendered)
-  st.text_area('Editable draft — review all claims before use',value=output,height=230)
-  st.download_button('Download practice draft',output,file_name='forces_hq_practice_notes.txt',mime='text/plain')
-  if st.button('Clear practice examples'):st.session_state.records=[];st.rerun()
+  draft_key=ui.key('draft_'+mode)
+  source_key='draft_source:'+mode
+  if draft_key not in st.session_state or st.session_state[draft_key]==st.session_state.get(source_key):
+   st.session_state[draft_key]=output
+  st.session_state[source_key]=output
+  if st.session_state[draft_key]!=output:st.caption('Your edits are preserved. Regenerate this draft to replace them with the latest practice examples.')
+  if st.button('Regenerate this draft from practice examples',help='Replaces edits for the selected output style.'):
+   st.session_state[draft_key]=output
+  edited_output=ui.text_area('Editable draft — review all claims before use',height=230,key='draft_'+mode)
+  st.download_button('Download practice draft',edited_output,file_name='forces_hq_practice_notes.txt',mime='text/plain')
+  if st.button('Clear practice examples'):
+   st.session_state.records=[]
+   ui.clear(*('draft_'+style for style in ['SJAR / OJAR evidence','MPAR preparation','Promotion evidence']))
+   rerun_with_retained_inputs()
   st.markdown('#### Evidence quality review')
   for e in st.session_state.records:
    st.write(f"**{e['theme']}** — "+ ('✅ Numbers included' if any(ch.isdigit() for ch in e['result']) else '⚠️ Consider adding verifiable measurements if available'))
@@ -399,13 +465,13 @@ elif page==PAGES[6]:
 
 elif page==PAGES[7]:
  st.subheader('🏡 Military life & future')
- topic=st.selectbox('What are you planning?',['Posting / relocation','Housing / buying','Family / education','Leaving / resettlement','Pension planning','Leave'])
+ topic=ui.selectbox('What are you planning?',['Posting / relocation','Housing / buying','Family / education','Leaving / resettlement','Pension planning','Leave'])
  keys={'Posting / relocation':['JSP 752','JSP 464'],'Housing / buying':['JSP 464'],'Family / education':['Official MOD benefits','JSP 752'],'Leaving / resettlement':['JSP 534'],'Pension planning':['Pension calculator'],'Leave':['JSP 760']}
  st.write('**Start with these verified sources:**')
  for entry in POLICIES:
   if entry['id'] in keys[topic]:policy_link(entry)
  st.markdown('**Suggested checklist:** Check current eligibility → confirm with authorised staff → plan timings → retain only the appropriate records in approved systems.')
- st.info('Future versions may add guided journeys and opt-in reminders; neither is active in V0.4.')
+ st.info('Future versions may add guided journeys and opt-in reminders; neither is active in V0.8.')
 
 elif page==PAGES[8]:
  st.subheader('🏦 Armed Forces pension planning')
@@ -420,8 +486,8 @@ elif page==PAGES[8]:
  with st.expander('✅ Real 2026 pay-table lookup — SSgt (OR7), trade supplements 1–3',expanded=True):
   st.caption('Verified limited extract from the 2026 Armed Forces Pay Review Body, Appendix 1, Tables 1.1–1.3. Annual salary figures INCLUDE X-Factor. These are recommended 1 April 2026 rates, not a live JPA payslip or proof of pensionable earnings. Check that the rates were implemented and apply to your personal situation.')
   a,b=st.columns(2)
-  with a: band=st.selectbox('Trade supplement', [1,2,3],index=([1,2,3].index(p['pay_supplement']) if p.get('pay_supplement') in [1,2,3] else 0),key='pay_band_lookup')
-  with b: point=st.selectbox('OR7 increment level',list(range(1,13)),index=(p['pay_increment']-1 if p.get('pay_increment') in range(1,13) else 0),key='pay_inc_lookup')
+  with a: band=ui.selectbox('Trade supplement', [1,2,3],index=([1,2,3].index(p['pay_supplement']) if p.get('pay_supplement') in [1,2,3] else 0),key='pay_band_lookup')
+  with b: point=ui.selectbox('OR7 increment level',list(range(1,13)),index=(p['pay_increment']-1 if p.get('pay_increment') in range(1,13) else 0),key='pay_inc_lookup')
   tabular=PAY_2026_OR7[band][point]
   st.metric('2026 published annual salary (including X-Factor)',money(tabular))
   if p.get('rank')!='Staff Sergeant':st.warning('Your linked rank is not Staff Sergeant. This OR7 table is provided for comparison only, not as your personal salary.')
@@ -430,44 +496,57 @@ elif page==PAGES[8]:
   st.link_button('View official 2026 pay report',AFPRB_2026_URL)
   if st.button('Use this pay figure in the AFPS 15 scenario',key='use_pay_v05'):
    st.session_state['v05_salary']=float(tabular)
+   st.session_state[ui.key('pension_annual')]=float(tabular)
+   st.session_state.pop('pension_result',None)
    st.success('Pay figure selected for this browser session. Confirm your pensionable earnings before modelling.')
  st.info('For other ranks, officers, Supplement 4, bespoke pay spines or historic rates: use the verified pensionable amount from your statement instead. We will not fabricate missing tables.')
  st.info('Start with **pensionable annual salary**, not total take-home pay. The pay table uses trade supplements and increment points. Specialist or other extra payments count only where officially classified as pensionable. This beta projects **AFPS 15 future accrual only**; it does not reconstruct AFPS 05, McCloud, EDP or your existing accumulated pension.')
+ if p.get('salary_verified') and p.get('verified_pensionable_salary'):
+  if st.button('Use linked profile earnings in this scenario'):
+   st.session_state[ui.key('pension_annual')]=float(p['verified_pensionable_salary'])
+   st.session_state.pop('pension_result',None)
+ st.caption('Scenario inputs are retained separately from your profile. You can edit them or explicitly copy linked profile earnings or a comparison pay figure.')
  with st.expander('Why do pay bands and specialist payments matter?',expanded=False):
   st.write('Other Ranks pay varies by rank, trade supplement and increment level. Some groups use bespoke pay spines. The MOD 2026 pay review has pay tables that include X-Factor for the applicable main scales. Do not add X-Factor a second time if it is already included.')
   st.write('Recruitment and Retention Pay, temporary duty additions and many allowances are excluded from pensionable earnings unless specifically deemed pensionable by the Scheme manager. An SF-related payment cannot be treated as pensionable merely because it appears on a payslip.')
   st.link_button('2026 AFPRB pay report (pay tables)', 'https://assets.publishing.service.gov.uk/media/6a27f8383b15d05a7ce31f52/AFPRB_55th_Report_2026.pdf')
   st.link_button('JSP 905: AFPS 15 rules', 'https://www.gov.uk/government/publications/armed-forces-pension-scheme-2015-and-early-departure-payments-scheme-2015-jsp-905-part-one')
   st.link_button('MOD pay explanation','https://discovermybenefits.mod.gov.uk/army/your-pay-and-pension/annual-salary/')
- with st.form('pension_pay_v04'):
+ with st.container(border=True):
   c1,c2=st.columns(2)
   with c1:
-   pay_category=st.selectbox('Pay category',['Other Ranks main scale','Officer scale','Bespoke / specialist spine','Other / not sure'])
-   supplement=st.selectbox('Trade supplement (where applicable)',['Not sure / not applicable','Supplement 1','Supplement 2','Supplement 3','Supplement 4'])
-   increment=st.number_input('Pay increment / level',1,20,1)
-   annual=st.number_input('Current annual pensionable salary (£) — check payslip',min_value=0.0,max_value=300000.0,value=float(p['verified_pensionable_salary'] if p.get('salary_verified') and p.get('verified_pensionable_salary') else st.session_state.get('v05_salary',0.0)),step=100.0,help='Enter the pensionable salary amount confirmed by official payslip / pay statement. Include X-Factor if already in salary.')
+   pay_category=ui.selectbox('Pay category',['Other Ranks main scale','Officer scale','Bespoke / specialist spine','Other / not sure'])
+   supplement=ui.selectbox('Trade supplement (where applicable)',['Not sure / not applicable','Supplement 1','Supplement 2','Supplement 3','Supplement 4'])
+   increment=ui.number_input('Pay increment / level',1,20,1)
+   annual=ui.number_input('Current annual pensionable salary (£) — check payslip',min_value=0.0,max_value=300000.0,value=float(p['verified_pensionable_salary'] if p.get('salary_verified') and p.get('verified_pensionable_salary') else st.session_state.get('v05_salary',0.0)),step=100.0,key='pension_annual',help='Enter the pensionable salary amount confirmed by official payslip / pay statement. Include X-Factor if already in salary.')
   with c2:
-   special=st.selectbox('Specialist / SF / RRP payment',['None','Specialist / bespoke pay spine','Special Forces-related pay','Recruitment & Retention Pay','Other supplement'])
-   add=st.number_input('Other ANNUAL payment confirmed pensionable by official documentation (£)',min_value=0.0,max_value=100000.0,value=0.0,step=100.0)
-   confirmed=st.checkbox('I have verified that the additional payment above is pensionable (or it is zero)',value=False)
-   horizon=st.slider('More years of AFPS 15 accrual to model',1,30,10)
+   special=ui.selectbox('Specialist / SF / RRP payment',['None','Specialist / bespoke pay spine','Special Forces-related pay','Recruitment & Retention Pay','Other supplement'])
+   add=ui.number_input('Other ANNUAL payment confirmed pensionable by official documentation (£)',min_value=0.0,max_value=100000.0,value=0.0,step=100.0)
+   confirmed=ui.checkbox('I have verified that the additional payment above is pensionable (or it is zero)',value=False)
+   horizon=ui.slider('More years of AFPS 15 accrual to model',1,30,10)
   c3,c4=st.columns(2)
-  with c3: pay_growth=st.slider('Illustrative annual rise in pensionable salary (%)',0.0,6.0,2.0,0.5)
-  with c4: revalue=st.slider('Illustrative active-service revaluation (%)',0.0,6.0,2.0,0.5)
-  done=st.form_submit_button('Calculate future AFPS 15 accrual',use_container_width=True)
+  with c3: pay_growth=ui.slider('Illustrative annual rise in pensionable salary (%)',0.0,6.0,2.0,0.5)
+  with c4: revalue=ui.slider('Illustrative active-service revaluation (%)',0.0,6.0,2.0,0.5)
+  done=st.button('Calculate future AFPS 15 accrual',use_container_width=True)
  if done:
   if annual<=0:st.warning('Enter a verified pensionable annual salary. A rank and supplement alone are not enough to establish the correct figure.')
   elif not confirmed:st.warning('Confirm additional payment pensionability first, or enter £0 and tick the checkbox to exclude it.')
   else:
-   pensionable=annual+add
-   cumulative=0.0
-   for yr in range(horizon):
-    cumulative=cumulative*(1+revalue/100)+pensionable*((1+pay_growth/100)**yr)/47
-   with st.container(border=True):
-    st.metric('NEW annual AFPS 15 pension entitlement accrued during first modelled year',money(pensionable/47)+' gross pension per year from scheme pension age')
-    st.metric('Combined new annual AFPS 15 pension entitlement from ONLY the future modelled years',money(cumulative)+' gross pension per year from scheme pension age')
-    st.caption('This is the modelled future AFPS 15 accrual only, not your total pension or an amount payable on leaving. Assumes full-year pensionable earnings, constant salary-growth and active revaluation assumptions, no breaks or flexible-service adjustment. Past accrual, legacy schemes, retirement timing, post-service uprating, EDP and tax are excluded. Your future earnings and rates will vary.')
-   if special!='None':st.warning('Specialist pay selected: ensure the amount is incorporated in the pensionable salary or confirmed as pensionable before relying on this scenario. Some specialist/temporary payments are excluded.')
+   st.session_state.pension_result=(annual,add,horizon,pay_growth,revalue,special)
+ if st.session_state.get('pension_result'):
+  result_annual,result_add,result_horizon,result_growth,result_revalue,result_special=st.session_state.pension_result
+  st.caption(f'Last calculated inputs: annual earnings {money(result_annual)}, additional pensionable payment {money(result_add)}, {result_horizon} future years, salary rise {result_growth:g}% and active revaluation {result_revalue:g}%.')
+  if not confirmed or (annual,add,horizon,pay_growth,revalue,special)!=st.session_state.pension_result:
+   st.info('Inputs have changed. The results below show your last calculated scenario; select Calculate to update them.')
+  pensionable=result_annual+result_add
+  cumulative=0.0
+  for yr in range(result_horizon):
+   cumulative=cumulative*(1+result_revalue/100)+pensionable*((1+result_growth/100)**yr)/47
+  with st.container(border=True):
+   st.metric('NEW annual AFPS 15 pension entitlement accrued during first modelled year',money(pensionable/47)+' gross pension per year from scheme pension age')
+   st.metric('Combined new annual AFPS 15 pension entitlement from ONLY the future modelled years',money(cumulative)+' gross pension per year from scheme pension age')
+   st.caption('This is the modelled future AFPS 15 accrual only, not your total pension or an amount payable on leaving. Assumes full-year pensionable earnings, constant salary-growth and active revaluation assumptions, no breaks or flexible-service adjustment. Past accrual, legacy schemes, retirement timing, post-service uprating, EDP and tax are excluded. Your future earnings and rates will vary.')
+  if result_special!='None':st.warning('Specialist pay selected: ensure the amount is incorporated in the pensionable salary or confirmed as pensionable before relying on this scenario. Some specialist/temporary payments are excluded.')
  st.divider()
  st.markdown('#### 2. Get your official full-service pension forecast')
 
@@ -481,14 +560,14 @@ elif page==PAGES[8]:
  st.divider()
  st.markdown('#### 4. Explore an official-quote scenario')
  st.write('Only enter figures from an **actual official quote**, or choose the fictional demo. We do **not** convert a £200/month contribution into guaranteed extra pension without a quote.')
- demo=st.checkbox('Use fictional demonstration figures',value=True)
+ demo=ui.checkbox('Use fictional demonstration figures',value=True)
  if demo:
-  cost=st.number_input('Fictional one-off contract cost (£)',100,100000,6000,100,disabled=True)
-  extra=st.number_input('Fictional extra gross annual pension at payment (£)',10,20000,420,10,disabled=True)
+  cost=ui.number_input('Fictional one-off contract cost (£)',100,100000,6000,100,disabled=True)
+  extra=ui.number_input('Fictional extra gross annual pension at payment (£)',10,20000,420,10,disabled=True)
  else:
-  cost=st.number_input('Cost of Added Pension contract from your quote (£)',0,1000000,0,100)
-  extra=st.number_input('Extra gross annual pension from your quote (£)',0,100000,0,10)
- years=st.slider('Illustrative number of years in payment',1,40,20)
+  cost=ui.number_input('Cost of Added Pension contract from your quote (£)',0,1000000,0,100)
+  extra=ui.number_input('Extra gross annual pension from your quote (£)',0,100000,0,10)
+ years=ui.slider('Illustrative number of years in payment',1,40,20)
  with st.container(border=True):
   st.metric('Additional gross pension each year (quoted scenario)',money(extra))
   st.metric('Total gross payments across illustrated years',money(extra*years))
@@ -501,4 +580,5 @@ elif page==PAGES[8]:
  st.warning('Do not enter service numbers, official statements or identifiable financial data into this public demonstration. Seek regulated independent financial advice for individual pension decisions.')
 
 st.divider()
-st.caption('Forces HQ V0.7 • Independent educational prototype • No database, real AI, account login, full-text JSP search, official pension calculations, reminders or JPA integration')
+st.caption('Forces HQ V0.8 • Independent educational prototype • No database, real AI, account login, full-text JSP search, official pension calculations, reminders or JPA integration')
+retain_hidden_inputs()
