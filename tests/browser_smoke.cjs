@@ -13,7 +13,7 @@ const headings = ['Your military life, in one place', '🎖️ My military profi
   '✍️ Achievement & appraisal preparation', '🏡 Military life & future', '🏦 Armed Forces pension planning'];
 
 async function settled(page) {
-  await page.getByText('Forces HQ V0.8 •', { exact: false }).waitFor();
+  await page.getByText('Forces HQ V0.9.1 •', { exact: false }).waitFor();
   await page.waitForFunction(() => document.querySelectorAll('[data-testid="stSkeleton"]').length === 0);
   assert.equal(await page.locator('[data-testid="stException"]').count(), 0);
 }
@@ -41,6 +41,19 @@ async function main() {
         await session.send('Emulation.setCPUThrottlingRate', { rate: Number(process.env.BROWSER_CPU_RATE) });
       }
       await page.goto(url);
+      await settled(page);
+      const primary = page.getByRole('radiogroup', { name: 'Primary navigation' });
+      for (const [name, index] of [['Explore',3], ['Money',2], ['Profile',1], ['Home',0]]) {
+        await primary.getByText(name, { exact: true }).click();
+        await page.getByRole('heading', { name: headings[index], exact: true }).waitFor();
+        await settled(page);
+        for (const label of await primary.locator('label').all()) {
+          const target = await label.boundingBox();
+          assert.ok(target && target.height >= 44 && target.width >= 44, 'Primary touch target too small');
+        }
+      }
+      await page.getByRole('button', { name: 'Ask a policy question', exact: true }).click();
+      await page.getByRole('heading', { name: headings[4], exact: true }).waitFor();
       await settled(page);
       for (let index = 0; index < sections.length; index++) {
         await section(page, index);

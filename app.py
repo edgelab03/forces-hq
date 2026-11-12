@@ -25,6 +25,14 @@ div:has(>.st-key-app_navigation){position:sticky;top:3.75rem;z-index:100}
 .st-key-app_navigation{background:#0b1425;border:1px solid #365374;border-radius:14px;padding:12px 16px;box-shadow:0 6px 20px #0005}
 .st-key-app_navigation p{margin-bottom:0}
 .st-key-app_navigation input{scroll-margin-top:0}
+.st-key-app_navigation [role="radiogroup"]{display:flex;flex-direction:row!important;flex-wrap:nowrap;gap:4px}
+.st-key-app_navigation [role="radiogroup"] label{flex:1;min-width:0;min-height:48px;justify-content:center;border:1px solid #365374;border-radius:10px;padding:6px 2px;margin:0!important}
+.st-key-app_navigation [role="radiogroup"] label:has(input:checked){background:#244b70;border-color:#70c8f5}
+.st-key-app_navigation [role="radiogroup"] label p{font-size:14px!important}
+.st-key-app_navigation [role="radiogroup"] label>div:first-child{display:none}
+.st-key-policy_entry{background:linear-gradient(120deg,#193b5c,#14283f);border-radius:16px}
+.st-key-profile_summary p{margin-bottom:4px}
+
 [data-testid="stMetricValue"]{white-space:normal;overflow-wrap:anywhere;font-size:1.6rem}
 [data-testid="stTextInput"] input,[data-testid="stNumberInput"] input,[data-testid="stDateInput"] input,textarea{font-size:16px!important}
 button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #70c8f5!important;outline-offset:3px}
@@ -82,26 +90,40 @@ if 'budget' not in st.session_state:st.session_state.budget={}
 PAGES=['🏠 Dashboard','🎖️ My profile','💷 My money','🎯 Entitlements','📚 JSP finder','📅 My career','✍️ Achievement assistant','🏡 Life & future','🏦 Pension planner']
 if 'nav_page' not in st.session_state:st.session_state.nav_page=PAGES[0]
 if st.session_state.nav_page not in PAGES:st.session_state.nav_page=PAGES[0]
+DESTINATIONS={'Home':[0], 'Explore':[3,4,5,6,7], 'Money':[2,8], 'Profile':[1]}
+def destination_for(page):
+ return next(name for name,indices in DESTINATIONS.items() if PAGES.index(page) in indices)
+st.session_state.setdefault('nav_primary',destination_for(st.session_state.nav_page))
 st.session_state.setdefault('nav_sidebar',st.session_state.nav_page)
 st.session_state.setdefault('nav_top',st.session_state.nav_page)
 def navigate(destination):
  st.session_state.nav_page=destination
+ st.session_state.nav_primary=destination_for(destination)
  st.session_state.nav_sidebar=destination
  st.session_state.nav_top=destination
 
 def change_section(source):
  navigate(st.session_state[source])
 
+def change_destination():
+ destination=st.session_state.nav_primary
+ navigate(PAGES[DESTINATIONS[destination][0]])
+
 with st.sidebar:
  st.title('🛡️ FORCES HQ')
- st.caption('Career • Money • Policy | V0.8')
+ st.caption('Career • Money • Policy | V0.9.1')
  st.selectbox('Quick navigation',PAGES,key='nav_sidebar',on_change=change_section,args=('nav_sidebar',))
  st.divider()
  st.warning('PUBLIC BETA: use fictional/non-identifying data only. There is no login, protected storage or persistent account. Do not enter real names, service numbers, official assessments or identifiable family details.')
  st.caption('Independent educational prototype; not an official MOD service.')
 with st.container(key='app_navigation'):
+ st.radio('Primary navigation',list(DESTINATIONS),key='nav_primary',horizontal=True,on_change=change_destination,label_visibility='collapsed')
  st.selectbox('Go to section',PAGES,key='nav_top',on_change=change_section,args=('nav_top',))
- st.caption('Your entries stay in this session when you change sections.')
+ current_destination=destination_for(st.session_state.nav_page)
+ if current_destination in ('Explore','Money'):
+  with st.expander(current_destination+' tools'):
+   for index in DESTINATIONS[current_destination]:
+    st.button(PAGES[index],key='group_nav_'+str(index),on_click=navigate,args=(PAGES[index],),use_container_width=True)
 page=st.session_state.nav_page
 ui=SessionInputs(page)
 st.markdown('<div class="hero"><h1>🛡️ Forces HQ</h1><p>Make sense of military money, benefits, policy and career decisions.</p></div>',unsafe_allow_html=True)
@@ -175,39 +197,53 @@ def rank_guides(query):
 
 if page==PAGES[0]:
  st.subheader('Your military life, in one place')
- cols=st.columns(3)
- for col,l,v in zip(cols,['Service','Rank','Years served'],[p['service'],p['rank'],p['years']]):
-  with col:tile(l,v)
- st.markdown('### Relevant to your profile')
- if p.get('dob'):
-  st.caption(f'Approximate age: {date.today().year-p["dob"].year-((date.today().month,date.today().day)<(p["dob"].month,p["dob"].day))} (from test birth date).')
- if p.get('dependent_count',0)>0:st.info(f'👪 {p["dependent_count"]} dependants recorded: explore family allowances and education guidance; eligibility is not automatic.')
- if p.get('rank_history'):st.caption(f'{len(p["rank_history"])} dated career milestones recorded in profile.')
- if p.get('join_date'):
-  verified_years=max(0,(date.today()-p['join_date']).days//365)
-  st.caption(f'Entered start date: {p["join_date"]:%d %b %Y} — approximately {verified_years} calendar years elapsed (not verified qualifying service).')
- if p.get('rank')=='Staff Sergeant' and profile_pay():
-  st.info(f'💷 **Published OR7 pay:** {money(profile_pay())} annual 2026 main-scale rate for your selected supplement and increment. Check the actual payable rate and pensionable earnings before using in a forecast.')
- if p.get('years',0)>=15:
-  st.info('🏦 **Pension milestone to review:** Your years served make it worth checking AFPS 15 EDP rules; standard eligibility also requires age 40 and 20 qualifying years. Not an eligibility award.')
- if p.get('posting')=='Upcoming assignment / move':
-  st.info('🏡 **Posting flagged:** investigate JSP 752 relocation/travel allowances and JSP 464 accommodation. No entitlement is assumed.')
- if p.get('family')=='Dependants / children':
-  st.info('👪 **Family support:** explore childcare and education schemes. Household circumstances and eligibility rules matter.')
- if p.get('added_pension')=='Purchased / active contract':
-  st.info('🏦 **Added Pension:** include the entitlement from your actual contract or official statement when forecasting. It is not calculated automatically here.')
- st.markdown('### Explore Forces HQ')
- st.caption('Tap any section to open it. Every tool is available here as well as in the optional menu.')
- descriptions=[('🎖️ My profile','Build your linked service and family timeline.'),('💷 My money','Review pay, budget and savings scenarios.'),('🎯 Entitlements','Explore benefits relevant to your situation.'),('📚 JSP finder','Ask a question and follow the policy reference.'),('📅 My career','Plan promotions, reporting and milestones.'),('✍️ Achievement assistant','Prepare evidence for appraisals.'),('🏡 Life & future','Housing, family and leaving the Services.'),('🏦 Pension planner','Explore future AFPS 15 accrual and official tools.')]
- for start in range(0,len(descriptions),2):
-  c1,c2=st.columns(2)
-  for c,item in zip((c1,c2),descriptions[start:start+2]):
-   with c:
+ with st.container(key='profile_summary',border=True):
+  st.caption('YOUR DEMO PROFILE')
+  st.markdown(f"**{escape(p['service'])} · {escape(p['rank'])}**")
+  st.caption(f"{p['years']} years entered · Session only · Unverified")
+ with st.container(key='policy_entry',border=True):
+  st.markdown('### A question about military policy?')
+  st.caption('Find existing guidance and follow the public source.')
+  st.button('Ask a policy question',on_click=navigate,args=(PAGES[4],),type='primary',use_container_width=True)
+ st.markdown('### Your next step')
+ descriptions=[(PAGES[2],'Budget and savings'),(PAGES[3],'Benefits to explore'),(PAGES[5],'Career milestones'),(PAGES[8],'Pension scenarios')]
+ for start in (0,2):
+  for col,(label,description) in zip(st.columns(2),descriptions[start:start+2]):
+   with col:
     with st.container(border=True):
-     st.button(item[0],key='home_nav_'+str(start)+item[0],use_container_width=True,on_click=navigate,args=(item[0],))
-     st.caption(item[1])
- st.info('Start with **My profile** to tailor the suggestions, and then use the **JSP finder** to investigate a particular entitlement.')
- st.caption('Profile information is shared across sections for this session only; it is not saved to an account.')
+     st.caption(description)
+     st.button(label,key='home_quick_'+label,on_click=navigate,args=(label,),use_container_width=True)
+ with st.expander('Profile insights and all tools'):
+  st.markdown('### Relevant to your profile')
+  if p.get('dob'):
+   st.caption(f'Approximate age: {date.today().year-p["dob"].year-((date.today().month,date.today().day)<(p["dob"].month,p["dob"].day))} (from test birth date).')
+  if p.get('dependent_count',0)>0:st.info(f'👪 {p["dependent_count"]} dependants recorded: explore family allowances and education guidance; eligibility is not automatic.')
+  if p.get('rank_history'):st.caption(f'{len(p["rank_history"])} dated career milestones recorded in profile.')
+  if p.get('join_date'):
+   verified_years=max(0,(date.today()-p['join_date']).days//365)
+   st.caption(f'Entered start date: {p["join_date"]:%d %b %Y} — approximately {verified_years} calendar years elapsed (not verified qualifying service).')
+  if p.get('rank')=='Staff Sergeant' and profile_pay():
+   st.info(f'💷 **Published OR7 pay:** {money(profile_pay())} annual 2026 main-scale rate for your selected supplement and increment. Check the actual payable rate and pensionable earnings before using in a forecast.')
+  if p.get('years',0)>=15:
+   st.info('🏦 **Pension milestone to review:** Your years served make it worth checking AFPS 15 EDP rules; standard eligibility also requires age 40 and 20 qualifying years. Not an eligibility award.')
+  if p.get('posting')=='Upcoming assignment / move':
+   st.info('🏡 **Posting flagged:** investigate JSP 752 relocation/travel allowances and JSP 464 accommodation. No entitlement is assumed.')
+  if p.get('family')=='Dependants / children':
+   st.info('👪 **Family support:** explore childcare and education schemes. Household circumstances and eligibility rules matter.')
+  if p.get('added_pension')=='Purchased / active contract':
+   st.info('🏦 **Added Pension:** include the entitlement from your actual contract or official statement when forecasting. It is not calculated automatically here.')
+  st.markdown('### Explore Forces HQ')
+  st.caption('Tap any section to open it. Every tool is available here as well as in the optional menu.')
+  descriptions=[('🎖️ My profile','Build your linked service and family timeline.'),('💷 My money','Review pay, budget and savings scenarios.'),('🎯 Entitlements','Explore benefits relevant to your situation.'),('📚 JSP finder','Ask a question and follow the policy reference.'),('📅 My career','Plan promotions, reporting and milestones.'),('✍️ Achievement assistant','Prepare evidence for appraisals.'),('🏡 Life & future','Housing, family and leaving the Services.'),('🏦 Pension planner','Explore future AFPS 15 accrual and official tools.')]
+  for start in range(0,len(descriptions),2):
+   c1,c2=st.columns(2)
+   for c,item in zip((c1,c2),descriptions[start:start+2]):
+    with c:
+     with st.container(border=True):
+      st.button(item[0],key='home_nav_'+str(start)+item[0],use_container_width=True,on_click=navigate,args=(item[0],))
+      st.caption(item[1])
+  st.info('Start with **My profile** to tailor the suggestions, and then use the **JSP finder** to investigate a particular entitlement.')
+  st.caption('Profile information is shared across sections for this session only; it is not saved to an account.')
 
 elif page==PAGES[1]:
  st.subheader('🎖️ My military profile')
@@ -580,5 +616,5 @@ elif page==PAGES[8]:
  st.warning('Do not enter service numbers, official statements or identifiable financial data into this public demonstration. Seek regulated independent financial advice for individual pension decisions.')
 
 st.divider()
-st.caption('Forces HQ V0.8 • Independent educational prototype • No database, real AI, account login, full-text JSP search, official pension calculations, reminders or JPA integration')
+st.caption('Forces HQ V0.9.1 • Independent educational prototype • No database, real AI, account login, full-text JSP search, official pension calculations, reminders or JPA integration')
 retain_hidden_inputs()
