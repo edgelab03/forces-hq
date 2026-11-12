@@ -36,11 +36,11 @@ class AppRegressionTests(unittest.TestCase):
         for index in range(9):
             with self.subTest(page=index):
                 self.page(index)
-                self.assertEqual(self.field('selectbox', 'Quick navigation').value, self.pages[index])
-        self.field('selectbox', 'Quick navigation').select(self.pages[0]).run()
-        self.click('💷 My money')
-        self.assertEqual(self.field('selectbox', 'Go to section').value, self.pages[2])
-        self.assertEqual(self.field('selectbox', 'Quick navigation').value, self.pages[2])
+                self.assertEqual(self.app.session_state.nav_sidebar, self.pages[index])
+        self.field('selectbox', 'Go to section').select(self.pages[0]).run()
+        self.click('Money\nPay and pensions')
+        self.assertEqual(self.field('selectbox', 'Go to section').value, self.pages[8])
+        self.assertEqual(self.app.session_state.nav_sidebar, self.pages[8])
 
     def test_budget_and_savings_survive_navigation(self):
         self.page(2)

@@ -39,8 +39,15 @@ class PrimaryNavigationTests(unittest.TestCase):
         self.assertEqual(self.field('number_input', 'Monthly take-home income (£)').value, 3600)
 
     def test_policy_entry_and_group_shortcut(self):
-        self.field('button', 'Ask a policy question').click().run()
+        self.field('button', '⌕  Ask a military question').click().run()
         self.assertEqual(self.field('radio', 'Primary navigation').value, 'Explore')
         self.field('button', '✍️ Achievement assistant').click().run()
         self.assertEqual(self.field('selectbox', 'Go to section').value, '✍️ Achievement assistant')
         self.assertFalse(self.app.exception)
+
+    def test_all_dashboard_cards_have_useful_destinations(self):
+        for label, target in [('Policy\nFind JSP answers', '📚 JSP finder'), ('Claims\nJPA guidance', '🎯 Entitlements'), ('Money\nPay and pensions', '🏦 Pension planner'), ('Career\nPersonal development', '📅 My career')]:
+            self.go('Home')
+            self.field('button', label).click().run()
+            self.assertEqual(self.field('selectbox', 'Go to section').value, target)
+            self.assertFalse(self.app.exception)

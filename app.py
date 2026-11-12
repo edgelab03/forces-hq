@@ -18,28 +18,26 @@ st.markdown('''<style>
 .tile small{color:#afd0eb}.tile strong{display:block;color:white;font-size:1.55rem;margin-top:7px}
 a{color:#82d7ff!important}.guide{padding:16px;border-radius:14px;background:#122c42;border:1px solid #356179;margin:12px 0}.guide h4{color:#fff;margin:0 0 8px 0}.guide p{color:#d4e5f3;margin:0}
 div.stButton > button {min-height:58px;border-radius:14px;font-size:1.02rem;font-weight:650;border:1px solid #45688b;background:#16324e;color:#f7fbff;} div.stButton > button:hover {background:#235075;border-color:#90c9f1;} @media(max-width:600px){.hero{padding:15px}.hero h1{font-size:1.6rem}.tile strong{font-size:1.17rem}}
-.stMainBlockContainer{max-width:1200px;padding-top:1.5rem;padding-bottom:3rem}
-[data-testid="stMain"] input,[data-testid="stMain"] textarea,[data-testid="stMain"] button,[data-testid="stMain"] label{scroll-margin-top:12rem}
-/* Streamlit wraps containers: stick the wrapper, not its height-limited child. */
-div:has(>.st-key-app_navigation){position:sticky;top:3.75rem;z-index:100}
-.st-key-app_navigation{background:#0b1425;border:1px solid #365374;border-radius:14px;padding:12px 16px;box-shadow:0 6px 20px #0005}
-.st-key-app_navigation p{margin-bottom:0}
-.st-key-app_navigation input{scroll-margin-top:0}
+.stMainBlockContainer{max-width:1200px;padding-top:4rem;padding-bottom:3rem}
+[data-testid="stMain"] input,[data-testid="stMain"] textarea,[data-testid="stMain"] button,[data-testid="stMain"] label{scroll-margin-top:1rem}
 .st-key-app_navigation [role="radiogroup"]{display:flex;flex-direction:row!important;flex-wrap:nowrap;gap:4px}
-.st-key-app_navigation [role="radiogroup"] label{flex:1;min-width:0;min-height:48px;justify-content:center;border:1px solid #365374;border-radius:10px;padding:6px 2px;margin:0!important}
-.st-key-app_navigation [role="radiogroup"] label:has(input:checked){background:#244b70;border-color:#70c8f5}
+.st-key-app_navigation [role="radiogroup"] label{flex:1;min-width:0;min-height:44px;justify-content:center;margin:0!important;padding:4px}
 .st-key-app_navigation [role="radiogroup"] label p{font-size:14px!important}
-.st-key-app_navigation [role="radiogroup"] label>div:first-child{display:none}
-.st-key-policy_entry{background:linear-gradient(120deg,#193b5c,#14283f);border-radius:16px}
-.st-key-profile_summary p{margin-bottom:4px}
-
+.st-key-app_navigation [role="radiogroup"] label:has(input:checked){background:#203c59;border-radius:8px}
+.st-key-dashboard [data-testid="stHorizontalBlock"]{flex-direction:row!important;gap:10px}
+.st-key-dashboard [data-testid="stHorizontalBlock"]>[data-testid="stColumn"]{width:calc(50% - 5px)!important;flex:1 1 0!important;min-width:0!important}
+.st-key-dashboard button{min-height:76px!important;font-size:14px!important;background:#14283f;border:1px solid #304963}
+.st-key-dashboard button p{white-space:pre-line;font-size:14px}
+.st-key-brand_header{flex-direction:row!important;flex-wrap:nowrap!important;justify-content:space-between}
+.st-key-brand_header button{min-height:44px!important}
+.st-key-brand_header h3{padding:0;font-size:1.25rem}
+.st-key-welcome p{margin:0}
+.st-key-policy_entry button{min-height:48px!important}
 [data-testid="stMetricValue"]{white-space:normal;overflow-wrap:anywhere;font-size:1.6rem}
 [data-testid="stTextInput"] input,[data-testid="stNumberInput"] input,[data-testid="stDateInput"] input,textarea{font-size:16px!important}
 button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #70c8f5!important;outline-offset:3px}
 @media(max-width:640px){
- .stMainBlockContainer{padding:1rem .85rem 2rem}
- .st-key-app_navigation{padding:8px 12px}
- .st-key-app_navigation [data-testid="stCaptionContainer"]{display:none}
+ .stMainBlockContainer{padding:4rem .85rem 1rem}
  [data-testid="stHorizontalBlock"]{flex-direction:column;gap:.65rem}
  [data-testid="stHorizontalBlock"]>[data-testid="stColumn"]{width:100%!important;flex:1 1 auto!important;min-width:0!important}
  div.stButton>button,[data-testid="stDownloadButton"] button,[data-testid="stLinkButton"] a{min-height:48px;width:100%}
@@ -112,21 +110,24 @@ def change_destination():
 with st.sidebar:
  st.title('🛡️ FORCES HQ')
  st.caption('Career • Money • Policy | V0.9.1')
- st.selectbox('Quick navigation',PAGES,key='nav_sidebar',on_change=change_section,args=('nav_sidebar',))
+ st.selectbox('Go to section',PAGES,key='nav_top',on_change=change_section,args=('nav_top',))
  st.divider()
  st.warning('PUBLIC BETA: use fictional/non-identifying data only. There is no login, protected storage or persistent account. Do not enter real names, service numbers, official assessments or identifiable family details.')
  st.caption('Independent educational prototype; not an official MOD service.')
-with st.container(key='app_navigation'):
- st.radio('Primary navigation',list(DESTINATIONS),key='nav_primary',horizontal=True,on_change=change_destination,label_visibility='collapsed')
- st.selectbox('Go to section',PAGES,key='nav_top',on_change=change_section,args=('nav_top',))
- current_destination=destination_for(st.session_state.nav_page)
- if current_destination in ('Explore','Money'):
-  with st.expander(current_destination+' tools'):
-   for index in DESTINATIONS[current_destination]:
-    st.button(PAGES[index],key='group_nav_'+str(index),on_click=navigate,args=(PAGES[index],),use_container_width=True)
+# The native bottom container reserves content space; no fixed-position CSS.
+with st.bottom:
+ with st.container(key='app_navigation'):
+  st.radio('Primary navigation',list(DESTINATIONS),key='nav_primary',horizontal=True,on_change=change_destination,label_visibility='collapsed')
 page=st.session_state.nav_page
 ui=SessionInputs(page)
-st.markdown('<div class="hero"><h1>🛡️ Forces HQ</h1><p>Make sense of military money, benefits, policy and career decisions.</p></div>',unsafe_allow_html=True)
+with st.container(key='brand_header',horizontal=True,vertical_alignment='center'):
+ st.markdown('### 🛡️ Forces HQ')
+ st.button('👤',help='Open profile',key='header_profile',on_click=navigate,args=(PAGES[1],))
+current_destination=destination_for(page)
+if current_destination in ('Explore','Money'):
+ with st.expander(current_destination+' tools'):
+  for index in DESTINATIONS[current_destination]:
+   st.button(PAGES[index],key='group_nav_'+str(index),on_click=navigate,args=(PAGES[index],),use_container_width=True)
 p=st.session_state.profile
 
 def tile(label,value):st.markdown(f'<div class="tile"><small>{escape(str(label))}</small><strong>{escape(str(value))}</strong></div>',unsafe_allow_html=True)
@@ -196,54 +197,19 @@ def rank_guides(query):
 
 
 if page==PAGES[0]:
- st.subheader('Your military life, in one place')
- with st.container(key='profile_summary',border=True):
-  st.caption('YOUR DEMO PROFILE')
-  st.markdown(f"**{escape(p['service'])} · {escape(p['rank'])}**")
-  st.caption(f"{p['years']} years entered · Session only · Unverified")
- with st.container(key='policy_entry',border=True):
-  st.markdown('### A question about military policy?')
-  st.caption('Find existing guidance and follow the public source.')
-  st.button('Ask a policy question',on_click=navigate,args=(PAGES[4],),type='primary',use_container_width=True)
- st.markdown('### Your next step')
- descriptions=[(PAGES[2],'Budget and savings'),(PAGES[3],'Benefits to explore'),(PAGES[5],'Career milestones'),(PAGES[8],'Pension scenarios')]
- for start in (0,2):
-  for col,(label,description) in zip(st.columns(2),descriptions[start:start+2]):
-   with col:
-    with st.container(border=True):
-     st.caption(description)
-     st.button(label,key='home_quick_'+label,on_click=navigate,args=(label,),use_container_width=True)
- with st.expander('Profile insights and all tools'):
-  st.markdown('### Relevant to your profile')
-  if p.get('dob'):
-   st.caption(f'Approximate age: {date.today().year-p["dob"].year-((date.today().month,date.today().day)<(p["dob"].month,p["dob"].day))} (from test birth date).')
-  if p.get('dependent_count',0)>0:st.info(f'👪 {p["dependent_count"]} dependants recorded: explore family allowances and education guidance; eligibility is not automatic.')
-  if p.get('rank_history'):st.caption(f'{len(p["rank_history"])} dated career milestones recorded in profile.')
-  if p.get('join_date'):
-   verified_years=max(0,(date.today()-p['join_date']).days//365)
-   st.caption(f'Entered start date: {p["join_date"]:%d %b %Y} — approximately {verified_years} calendar years elapsed (not verified qualifying service).')
-  if p.get('rank')=='Staff Sergeant' and profile_pay():
-   st.info(f'💷 **Published OR7 pay:** {money(profile_pay())} annual 2026 main-scale rate for your selected supplement and increment. Check the actual payable rate and pensionable earnings before using in a forecast.')
-  if p.get('years',0)>=15:
-   st.info('🏦 **Pension milestone to review:** Your years served make it worth checking AFPS 15 EDP rules; standard eligibility also requires age 40 and 20 qualifying years. Not an eligibility award.')
-  if p.get('posting')=='Upcoming assignment / move':
-   st.info('🏡 **Posting flagged:** investigate JSP 752 relocation/travel allowances and JSP 464 accommodation. No entitlement is assumed.')
-  if p.get('family')=='Dependants / children':
-   st.info('👪 **Family support:** explore childcare and education schemes. Household circumstances and eligibility rules matter.')
-  if p.get('added_pension')=='Purchased / active contract':
-   st.info('🏦 **Added Pension:** include the entitlement from your actual contract or official statement when forecasting. It is not calculated automatically here.')
-  st.markdown('### Explore Forces HQ')
-  st.caption('Tap any section to open it. Every tool is available here as well as in the optional menu.')
-  descriptions=[('🎖️ My profile','Build your linked service and family timeline.'),('💷 My money','Review pay, budget and savings scenarios.'),('🎯 Entitlements','Explore benefits relevant to your situation.'),('📚 JSP finder','Ask a question and follow the policy reference.'),('📅 My career','Plan promotions, reporting and milestones.'),('✍️ Achievement assistant','Prepare evidence for appraisals.'),('🏡 Life & future','Housing, family and leaving the Services.'),('🏦 Pension planner','Explore future AFPS 15 accrual and official tools.')]
-  for start in range(0,len(descriptions),2):
-   c1,c2=st.columns(2)
-   for c,item in zip((c1,c2),descriptions[start:start+2]):
-    with c:
-     with st.container(border=True):
-      st.button(item[0],key='home_nav_'+str(start)+item[0],use_container_width=True,on_click=navigate,args=(item[0],))
-      st.caption(item[1])
-  st.info('Start with **My profile** to tailor the suggestions, and then use the **JSP finder** to investigate a particular entitlement.')
-  st.caption('Profile information is shared across sections for this session only; it is not saved to an account.')
+ with st.container(key='welcome',border=True):
+  st.markdown('**Welcome back**')
+  summary=' · '.join(str(p.get(field)) for field in ('rank','service') if p.get(field) and p.get(field)!='Not specified')
+  st.caption(summary or 'Your demo profile')
+ with st.container(key='policy_entry'):
+  st.button('⌕  Ask a military question',key='home_policy',on_click=navigate,args=(PAGES[4],),use_container_width=True)
+ with st.container(key='dashboard'):
+  cards=[('Policy','Find JSP answers',4),('Claims','JPA guidance',3),('Money','Pay and pensions',8),('Career','Personal development',5)]
+  for start in (0,2):
+   for col,(title,detail,index) in zip(st.columns(2),cards[start:start+2]):
+    with col:
+     st.button(title+'\n'+detail,key='dashboard_'+title,on_click=navigate,args=(PAGES[index],),use_container_width=True)
+ st.caption('Independent demo · Fictional data only · Session only')
 
 elif page==PAGES[1]:
  st.subheader('🎖️ My military profile')
@@ -616,5 +582,5 @@ elif page==PAGES[8]:
  st.warning('Do not enter service numbers, official statements or identifiable financial data into this public demonstration. Seek regulated independent financial advice for individual pension decisions.')
 
 st.divider()
-st.caption('Forces HQ V0.9.1 • Independent educational prototype • No database, real AI, account login, full-text JSP search, official pension calculations, reminders or JPA integration')
+st.caption('Forces HQ V0.9.1 • Independent educational prototype • Session only · Not an official MOD service')
 retain_hidden_inputs()

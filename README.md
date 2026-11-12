@@ -1,10 +1,16 @@
-# Forces HQ V0.8 — Phase 1
+# Forces HQ V0.9.1
 
 An independent educational **demonstration** app for exploring British Armed Forces career planning, money and policy. Not affiliated with the Ministry of Defence.
 
+## Dashboard and navigation
+
+Home has a compact welcome card, four two-column shortcuts (Policy, Claims, Money and Career), and an **Ask a military question** entry to the existing policy finder. Home, Explore, Money and Profile remain available in Streamlit's native bottom container. The full section list is in the optional sidebar; Explore and Money also expose their secondary tools. Streamlit 1.67 or later is required for supported bottom placement.
+
+No tool calculations, policy references, budget inputs or profile onboarding have changed. Data remains within the current session. See [V0.9.1_REVIEW.md](V0.9.1_REVIEW.md) for validation scope and real Android checks.
+
 ## Changes in Phase 1
 
-- A visible **Go to section** selector appears on every page and stays available while scrolling. It includes the dashboard and all eight tools. Dashboard cards and the sidebar menu remain available and stay in sync.
+- The original **Go to section** selector includes all nine sections; V0.9.1 moves it into the optional sidebar and adds compact bottom navigation. Navigation controls remain in sync.
 - Budget and savings inputs, profile drafts, policy searches and answers, filters, milestone drafts, achievement drafts and pension scenarios survive section changes **within the same browser session**.
 - Entry panels update their draft fields immediately. Explicit buttons still apply the linked profile, add records and calculate the pension scenario. This avoids losing an unsubmitted form when navigating away.
 - Optional profile dates enable immediately when ticked, use day/month/year formatting, and start blank. The app asks for missing dates, rejects birth dates on/after enlistment, and prevents selecting both named pension schemes and “Not sure”.

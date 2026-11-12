@@ -8,7 +8,7 @@ const url = process.env.APP_URL || 'http://127.0.0.1:8502';
 const artifacts = process.env.ARTIFACT_DIR || '/tmp/forces-hq-phase1';
 const sections = ['🏠 Dashboard', '🎖️ My profile', '💷 My money', '🎯 Entitlements',
   '📚 JSP finder', '📅 My career', '✍️ Achievement assistant', '🏡 Life & future', '🏦 Pension planner'];
-const headings = ['Your military life, in one place', '🎖️ My military profile', '💷 My money',
+const headings = ['Welcome back', '🎖️ My military profile', '💷 My money',
   '🎯 Entitlements explorer', '🔎 Ask Forces HQ', '📅 Career & reporting milestones',
   '✍️ Achievement & appraisal preparation', '🏡 Military life & future', '🏦 Armed Forces pension planning'];
 
@@ -18,9 +18,16 @@ async function settled(page) {
   assert.equal(await page.locator('[data-testid="stException"]').count(), 0);
 }
 async function section(page, index) {
-  await page.getByRole('combobox', { name: 'Go to section', exact: true }).click();
-  await page.getByRole('option', { name: sections[index], exact: true }).click();
-  await page.getByRole('heading', { name: headings[index], exact: true }).waitFor();
+  const destination = index === 0 ? 'Home' : index === 1 ? 'Profile' : [2,8].includes(index) ? 'Money' : 'Explore';
+  await page.getByRole('radiogroup', {name:'Primary navigation'}).getByText(destination,{exact:true}).click();
+  await settled(page);
+  if (destination === 'Explore' || destination === 'Money') {
+    const tools = page.locator('details').filter({hasText:destination+' tools'}).first();
+    await tools.waitFor();
+    if (!(await tools.evaluate(el => el.open))) await page.getByText(destination+' tools',{exact:true}).click();
+    await page.getByRole('button',{name:sections[index],exact:true}).click();
+  }
+  await (index === 0 ? page.getByText('Welcome back',{exact:true}) : page.getByRole('heading',{name:headings[index],exact:true})).waitFor();
   await settled(page);
 }
 async function main() {
@@ -42,17 +49,33 @@ async function main() {
       }
       await page.goto(url);
       await settled(page);
+      await page.screenshot({ path: path.join(artifacts, `home-${width}.png`) });
+      const header = await page.getByRole('heading', {name:'🛡️ Forces HQ',exact:true}).boundingBox();
+      assert.ok(header && header.y >= 48, 'Branding is covered by Streamlit header');
+      const policy = await page.getByRole('button', {name:'Policy Find JSP answers',exact:true}).boundingBox();
+      const claims = await page.getByRole('button', {name:'Claims JPA guidance',exact:true}).boundingBox();
+      assert.ok(policy && claims && Math.abs(policy.y-claims.y)<2 && claims.x>policy.x, 'Home cards must stay in two columns');
+      const nav = await page.locator('.st-key-app_navigation').boundingBox();
+      assert.ok(policy.y+policy.height<nav.y, 'Bottom navigation covers dashboard cards');
+      for (const [label,index] of [['Policy Find JSP answers',4],['Claims JPA guidance',3],['Money Pay and pensions',8],['Career Personal development',5]]) {
+        await page.getByRole('button',{name:label,exact:true}).click();
+        await page.getByRole('heading',{name:headings[index],exact:true}).waitFor();
+        await settled(page);
+        await page.getByRole('radiogroup',{name:'Primary navigation'}).getByText('Home',{exact:true}).click();
+        await page.getByText('Welcome back',{exact:true}).waitFor();
+        await settled(page);
+      }
       const primary = page.getByRole('radiogroup', { name: 'Primary navigation' });
       for (const [name, index] of [['Explore',3], ['Money',2], ['Profile',1], ['Home',0]]) {
         await primary.getByText(name, { exact: true }).click();
-        await page.getByRole('heading', { name: headings[index], exact: true }).waitFor();
+        await (index === 0 ? page.getByText('Welcome back', {exact:true}) : page.getByRole('heading', { name: headings[index], exact: true })).waitFor();
         await settled(page);
         for (const label of await primary.locator('label').all()) {
           const target = await label.boundingBox();
           assert.ok(target && target.height >= 44 && target.width >= 44, 'Primary touch target too small');
         }
       }
-      await page.getByRole('button', { name: 'Ask a policy question', exact: true }).click();
+      await page.getByRole('button', { name: '⌕  Ask a military question', exact: true }).click();
       await page.getByRole('heading', { name: headings[4], exact: true }).waitFor();
       await settled(page);
       for (let index = 0; index < sections.length; index++) {
@@ -63,8 +86,10 @@ async function main() {
         // Streamlit scrolls inside its main panel rather than the document.
         await page.locator('[data-testid="stMain"]').evaluate(el => { el.scrollTop = el.scrollHeight; });
         const box = await page.locator('.st-key-app_navigation').boundingBox();
-        assert.ok(box && box.y >= 48 && box.y + box.height < 844,
+        assert.ok(box && box.y >= 0 && box.y + box.height <= 844 && box.height <= 80,
           `Navigation left the screen at ${width}px: ${sections[index]} (${JSON.stringify(box)})`);
+        const footer = await page.getByText('Forces HQ V0.9.1 •', {exact:false}).boundingBox();
+        assert.ok(footer && footer.y+footer.height <= box.y, 'Bottom navigation obscures scrollable content');
       }
       await section(page, 2);
       const income = page.getByRole('spinbutton', { name: 'Monthly take-home income (£)', exact: true });
@@ -122,7 +147,7 @@ async function main() {
       await section(page, 0);
       await page.locator('[data-testid="stMain"]').evaluate(el => { el.scrollTop = 0; });
       await page.screenshot({ path: path.join(artifacts, `dashboard-${width}.png`) });
-      console.log(`PASS ${width}px: all nine pages, sticky navigation, retained income and draft, reactive date control, rapid achievement entry, exact edited download`);
+      console.log(`PASS ${width}px: all nine pages, bottom navigation, retained income and draft, reactive date control, rapid achievement entry, exact edited download`);
       await context.close();
     }
   } finally {
