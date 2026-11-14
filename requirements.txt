@@ -1,1 +1,4 @@
-streamlit>=1.40,<2
+streamlit>=1.67,<2
+
+pypdf>=6,<7
+cryptography>=46,<47

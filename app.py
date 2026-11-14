@@ -3,8 +3,12 @@ from copy import deepcopy
 from html import escape
 import json
 import re
-import difflib
 import streamlit as st
+from app_context import question_handoff, linked_milestones, apply_restored_profile
+from policy_ui import render_question
+from policy_engine import PolicyIndex, CATALOGUE
+import profile_backup
+from build_info import build_info
 from session_inputs import SessionInputs, retain_inputs, retain_hidden_inputs, rerun_with_retained_inputs
 
 st.set_page_config(page_title='Forces HQ | Career, Money & Policy', page_icon='🛡️', layout='wide', initial_sidebar_state='collapsed')
@@ -17,21 +21,33 @@ st.markdown('''<style>
 .tile{padding:15px;border:1px solid #334b69;background:#14283f;border-radius:12px;min-height:110px}
 .tile small{color:#afd0eb}.tile strong{display:block;color:white;font-size:1.55rem;margin-top:7px}
 a{color:#82d7ff!important}.guide{padding:16px;border-radius:14px;background:#122c42;border:1px solid #356179;margin:12px 0}.guide h4{color:#fff;margin:0 0 8px 0}.guide p{color:#d4e5f3;margin:0}
-div.stButton > button {min-height:58px;border-radius:14px;font-size:1.02rem;font-weight:650;border:1px solid #45688b;background:#16324e;color:#f7fbff;} div.stButton > button:hover {background:#235075;border-color:#90c9f1;} @media(max-width:600px){.hero{padding:15px}.hero h1{font-size:1.6rem}.tile strong{font-size:1.17rem}}
-.stMainBlockContainer{max-width:1200px;padding-top:1.5rem;padding-bottom:3rem}
-[data-testid="stMain"] input,[data-testid="stMain"] textarea,[data-testid="stMain"] button,[data-testid="stMain"] label{scroll-margin-top:12rem}
-/* Streamlit wraps containers: stick the wrapper, not its height-limited child. */
-div:has(>.st-key-app_navigation){position:sticky;top:3.75rem;z-index:100}
-.st-key-app_navigation{background:#0b1425;border:1px solid #365374;border-radius:14px;padding:12px 16px;box-shadow:0 6px 20px #0005}
-.st-key-app_navigation p{margin-bottom:0}
-.st-key-app_navigation input{scroll-margin-top:0}
+div.stButton > button {min-height:44px;border-radius:14px;font-size:.95rem;font-weight:650;border:1px solid #45688b;background:#16324e;color:#f7fbff;} div.stButton > button:hover {background:#235075;border-color:#90c9f1;} @media(max-width:600px){.hero{padding:15px}.hero h1{font-size:1.6rem}.tile strong{font-size:1.17rem}}
+.stMainBlockContainer{max-width:1200px;padding-top:4rem;padding-bottom:3rem}
+[data-testid="stMain"] input,[data-testid="stMain"] textarea,[data-testid="stMain"] button,[data-testid="stMain"] label{scroll-margin-top:1rem}
+.st-key-app_navigation [role="radiogroup"]{display:flex;flex-direction:row!important;flex-wrap:nowrap;gap:4px}
+.st-key-app_navigation [role="radiogroup"] label{flex:1;box-sizing:border-box;min-width:44px;min-height:44px;justify-content:center;margin:0!important;padding:2px}
+.st-key-app_navigation [role="radiogroup"] label p{font-size:12px!important}
+.st-key-app_navigation [role="radiogroup"] label>div>div:first-child{display:none}
+.st-key-app_navigation [role="radiogroup"] label>div{gap:0;justify-content:center}
+.st-key-app_navigation [role="radiogroup"] label p{white-space:nowrap}
+.st-key-app_navigation [role="radiogroup"] label:focus-within{outline:2px solid #70c8f5;outline-offset:2px}
+.st-key-app_navigation [role="radiogroup"] label:has(input:checked){background:#203c59;border-radius:8px}
+.st-key-dashboard [data-testid="stHorizontalBlock"]{flex-direction:row!important;gap:10px}
+.st-key-dashboard [data-testid="stHorizontalBlock"]>[data-testid="stColumn"]{width:calc(50% - 5px)!important;flex:1 1 0!important;min-width:0!important}
+.st-key-dashboard button{min-height:76px!important;font-size:14px!important;background:#14283f;border:1px solid #304963}
+.st-key-dashboard button p{white-space:pre-line;font-size:14px}
+.st-key-brand_header{flex-direction:row!important;flex-wrap:nowrap!important;justify-content:space-between}
+.st-key-secondary_navigation{flex-direction:row!important;flex-wrap:wrap!important;gap:6px}
+.st-key-secondary_navigation button{min-height:44px!important;font-size:13px!important}
+.st-key-brand_header button{min-height:44px!important}
+.st-key-brand_header h3{padding:0;font-size:1.25rem}
+.st-key-welcome p{margin:0}
+.st-key-policy_entry button{min-height:48px!important}
 [data-testid="stMetricValue"]{white-space:normal;overflow-wrap:anywhere;font-size:1.6rem}
 [data-testid="stTextInput"] input,[data-testid="stNumberInput"] input,[data-testid="stDateInput"] input,textarea{font-size:16px!important}
 button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #70c8f5!important;outline-offset:3px}
 @media(max-width:640px){
- .stMainBlockContainer{padding:1rem .85rem 2rem}
- .st-key-app_navigation{padding:8px 12px}
- .st-key-app_navigation [data-testid="stCaptionContainer"]{display:none}
+ .stMainBlockContainer{padding:4rem .85rem 1rem}
  [data-testid="stHorizontalBlock"]{flex-direction:column;gap:.65rem}
  [data-testid="stHorizontalBlock"]>[data-testid="stColumn"]{width:100%!important;flex:1 1 auto!important;min-width:0!important}
  div.stButton>button,[data-testid="stDownloadButton"] button,[data-testid="stLinkButton"] a{min-height:48px;width:100%}
@@ -80,31 +96,66 @@ if 'records' not in st.session_state:st.session_state.records=[]
 if 'events' not in st.session_state:st.session_state.events=[]
 if 'budget' not in st.session_state:st.session_state.budget={}
 PAGES=['🏠 Dashboard','🎖️ My profile','💷 My money','🎯 Entitlements','📚 JSP finder','📅 My career','✍️ Achievement assistant','🏡 Life & future','🏦 Pension planner']
+if st.session_state.get('pending_profile_restore'):
+ apply_restored_profile(st.session_state,st.session_state.pop('pending_profile_restore'),PAGES[1])
 if 'nav_page' not in st.session_state:st.session_state.nav_page=PAGES[0]
 if st.session_state.nav_page not in PAGES:st.session_state.nav_page=PAGES[0]
+DESTINATIONS={'Home':[0], 'Policy':[4], 'Claims':[3], 'Money':[2,8], 'Career':[5,6,7], 'Profile':[1]}
+def destination_for(page):
+ return next(name for name,indices in DESTINATIONS.items() if PAGES.index(page) in indices)
+st.session_state.nav_primary=destination_for(st.session_state.nav_page)
 st.session_state.setdefault('nav_sidebar',st.session_state.nav_page)
 st.session_state.setdefault('nav_top',st.session_state.nav_page)
 def navigate(destination):
  st.session_state.nav_page=destination
+ st.session_state.nav_primary=destination_for(destination)
  st.session_state.nav_sidebar=destination
  st.session_state.nav_top=destination
 
 def change_section(source):
  navigate(st.session_state[source])
 
+def change_destination():
+ destination=st.session_state.nav_primary
+ navigate(PAGES[DESTINATIONS[destination][0]])
+
+def ask_question(question):
+ question_handoff(st.session_state,question,PAGES[4])
+ navigate(PAGES[4])
+
+def ask_home():
+ ask_question(st.session_state.get('home_question',''))
+
+def ask_opportunity(question):
+ ask_question(question)
+
 with st.sidebar:
  st.title('🛡️ FORCES HQ')
- st.caption('Career • Money • Policy | V0.8')
- st.selectbox('Quick navigation',PAGES,key='nav_sidebar',on_change=change_section,args=('nav_sidebar',))
- st.divider()
- st.warning('PUBLIC BETA: use fictional/non-identifying data only. There is no login, protected storage or persistent account. Do not enter real names, service numbers, official assessments or identifiable family details.')
- st.caption('Independent educational prototype; not an official MOD service.')
-with st.container(key='app_navigation'):
- st.selectbox('Go to section',PAGES,key='nav_top',on_change=change_section,args=('nav_top',))
- st.caption('Your entries stay in this session when you change sections.')
+ st.caption('Independent educational app · Not an official MOD service')
+ st.warning('Use fictional/non-identifying data only. Do not enter service numbers, operational information, official assessments or identifiable family details.')
+ with st.expander('All tools'):
+  for index,label in enumerate(PAGES):
+   st.button(label,key='sidebar_'+str(index),on_click=navigate,args=(label,),use_container_width=True)
+ with st.expander('Build and source status'):
+  info=build_info()
+  st.json(info)
+  st.caption('Local process identity only. A hosted app must be checked separately.')
+  st.caption('Policy index: '+PolicyIndex().status()['state'])
+# Native bottom placement reserves page space and stays outside the scroll area.
+with st.bottom:
+ with st.container(key='app_navigation'):
+  st.radio('Primary navigation',list(DESTINATIONS),key='nav_primary',horizontal=True,on_change=change_destination,label_visibility='collapsed',width='stretch')
 page=st.session_state.nav_page
 ui=SessionInputs(page)
-st.markdown('<div class="hero"><h1>🛡️ Forces HQ</h1><p>Make sense of military money, benefits, policy and career decisions.</p></div>',unsafe_allow_html=True)
+with st.container(key='brand_header',horizontal=True,vertical_alignment='center'):
+ st.markdown('### 🛡️ Forces HQ')
+ st.button('👤',help='Open profile',key='header_profile',on_click=navigate,args=(PAGES[1],))
+current_destination=destination_for(page)
+SECONDARY={'Money':[(2,'Budget & savings'),(8,'Pay & pensions')], 'Career':[(5,'Milestones'),(6,'Achievements'),(7,'Life & future')]}
+if current_destination in SECONDARY:
+ with st.container(key='secondary_navigation',horizontal=True):
+  for index,label in SECONDARY[current_destination]:
+   st.button(label,key='group_nav_'+str(index),on_click=navigate,args=(PAGES[index],),type='primary' if page==PAGES[index] else 'secondary')
 p=st.session_state.profile
 
 def tile(label,value):st.markdown(f'<div class="tile"><small>{escape(str(label))}</small><strong>{escape(str(value))}</strong></div>',unsafe_allow_html=True)
@@ -116,98 +167,25 @@ def profile_pay():
  return None
 
 
-# Guided question routing: curated public policy pointers, not full-text extraction.
-GUIDES=[
- {'title':'Fuel, mileage and travel claims','questions':['Can I claim fuel driving to work?','Can I claim mileage for duty travel?','What if I travel to a temporary duty location?'], 'terms':'fuel petrol diesel mileage car commute commuting driving travel duty transport motor home to duty htd get you home gyh', 'answer':'Ordinary commuting, authorised duty travel and travel arising from an assignment have different rules. A claim cannot be established from the word “fuel” alone. Check the type of journey, authorisation and the relevant allowances rules before spending or claiming.', 'ask':['Was this ordinary home-to-work travel or authorised duty travel?','Was it a temporary duty journey, change of assignment or separated-service journey?','Do you have the required approval and evidence?'], 'sources':['JSP 752'], 'next':'Confirm the journey category with your unit HR/admin team, then find the relevant travel provision in the current JSP 752 and applicable JPA claim route.'},
- {'title':'Posting, removals and disturbance allowance','questions':['What can I claim when I get posted?','Can I claim removals or disturbance?'], 'terms':'posting posted relocation move moving removals disturbance assignment new unit packing travel expenses', 'answer':'A qualifying assignment may trigger certain relocation, removal, travel or disturbance provisions. Amounts and conditions vary, so a move alone does not establish an entitlement.', 'ask':['Is this an assignment, voluntary move or other move?','Will your family move with you?','Have you received official assignment instructions?'], 'sources':['JSP 752','JSP 464'], 'next':'Check your assignment instructions, the appropriate JSP 752 relocation provisions and unit HR advice before incurring costs.'},
- {'title':'Housing and Forces Help to Buy','questions':['Can I use Forces Help to Buy?','Am I entitled to service family accommodation?'], 'terms':'housing house buy mortgage forces help to buy fhtb accommodation sfa sla married property advance', 'answer':'Forces Help to Buy and service accommodation are distinct schemes, with separate criteria. Do not assume eligibility from rank or family status alone.', 'ask':['Are you buying a qualifying property or seeking Service accommodation?','Are you currently serving and meeting the scheme-specific conditions?'], 'sources':['JSP 464'], 'next':'Review JSP 464 and the official Forces Help to Buy guidance; seek a formal eligibility check before making financial commitments.'},
- {'title':'Children, schooling and CEA','questions':['Can I claim CEA for boarding school?','What support is there for childcare?'], 'terms':'cea boarding school children education childcare child schooling continuity family nursery dependants', 'answer':'Continuity of Education Allowance and childcare support have separate eligibility requirements. Having children does not automatically qualify a family for either scheme.', 'ask':['Is the query about education continuity or childcare?','Do assignment circumstances meet the current scheme requirements?'], 'sources':['JSP 752','Official MOD benefits'], 'next':'Read the latest education-allowance provisions and official family benefits guidance, and consult the specialist education or unit allowances staff.'},
- {'title':'SJAR, OJAR, MPAR and reporting','questions':['When is my MPAR due?','How do I prepare for my SJAR?'], 'terms':'sjar ojar mpar appraisal reporting reports window promotion officer review objectives career board', 'answer':'Appraisal reviews, report submissions and promotion windows depend on Service-specific policy and the relevant reporting cycle. No universal date can safely be assumed.', 'ask':['Which Service and appraisal type applies?','What is your confirmed reporting cycle and latest instruction?'], 'sources':['JSP 757'], 'next':'Use your unit career-management or reporting chain for current authorised windows. Track your confirmed dates in the Career page.'},
- {'title':'Added Pension and AFPS forecasts','questions':['Can I pay more into AFPS 15?','How does Added Pension affect my retirement?'], 'terms':'pension afps edp retirement added overpay contributions extra pay more quote benefits forecasting leave 05 15', 'answer':'AFPS 15 members can apply to buy Added Pension, subject to scheme conditions. The cost comes from an official quotation; it is not equivalent to investing a fixed monthly amount at a chosen rate.', 'ask':['Which pension schemes do you have benefits in?','Have you obtained an official Added Pension quote?','At what age or service point might you leave?'], 'sources':['Pension calculator'], 'next':'Open the Pension Planner within Forces HQ, then use the official Armed Forces pension/Added Pension calculators and Form 6 to request a quote.'},
- {'title':'Leave and family absence','questions':['How much leave can I take?','What about parental leave?'], 'terms':'leave absence annual parental compassionate maternity paternity holiday special leave', 'answer':'Leave type and eligibility depend on the applicable regulations and Service-specific arrangements.', 'ask':['What leave category is involved?','Have you checked local and Service instructions?'], 'sources':['JSP 760'], 'next':'Check the relevant leave provisions and confirm booking/approval with your chain of command.'},
- {'title':'Resettlement and leaving service','questions':['What help do I get when leaving the Army?','When can I access resettlement training?'], 'terms':'resettlement leaving exit transition civilian employment career training ctp discharge', 'answer':'Resettlement assistance varies by qualifying service and circumstances. Check your entitlement and timescales before booking courses.', 'ask':['What is your anticipated leaving date?','How much qualifying service will you have?'], 'sources':['JSP 534'], 'next':'Contact your Service Resettlement Adviser and check JSP 534 and Career Transition Partnership guidance.'}
-]
-
-POLICY_TOPIC_REFS={
- 'Fuel, mileage and travel claims':[
-  ('Official duty travel','JSP 752 (v67, October 2026), Chapter 6, Section 7','https://www.gov.uk/government/publications/guide-to-expenses-and-allowances-for-service-personnel/guide-to-expenses-and-allowances-for-service-personnel'),
-  ('Motor Mileage Allowance','JSP 752 (v67), Chapter 6, Section 4','https://www.gov.uk/government/publications/jsp-752-tri-service-regulations-for-expenses-and-allowances'),
-  ('Home to Duty Travel','JSP 752 (v67), Chapter 7, Section 3','https://www.gov.uk/government/publications/jsp-752-tri-service-regulations-for-expenses-and-allowances'),
-  ('Get You Home travel','JSP 752 (v67), Chapter 7, Section 4','https://www.gov.uk/government/publications/jsp-752-tri-service-regulations-for-expenses-and-allowances')],
- 'Posting, removals and disturbance allowance': [('Disturbance Expense','JSP 752 (v67), Chapter 12, Section 1','https://www.gov.uk/government/publications/jsp-752-tri-service-regulations-for-expenses-and-allowances')],
-}
-def travel_assessment(journey,approved,evidence):
- if journey=='Ordinary home-to-work journey':
-  decision='Potentially relevant: **Home to Duty Travel** rather than general duty mileage.'
-  info='Home-to-duty travel is a separate allowance with residence and distance conditions. A normal commute is not automatically an authorised duty journey.'
-  section='JSP 752 Chapter 7, Section 3'
- elif journey=='Authorised duty journey':
-  decision='Potentially relevant: **official duty travel / Motor Mileage Allowance**.' if approved=='Yes' else 'Duty mileage is **not confirmed** without the relevant journey/vehicle authorisation.'
-  info='For official journeys, check authorised transport, private-vehicle permission, insurance and claim evidence. Rates and exceptions must be checked in the live policy.'
-  section='JSP 752 Chapter 6, Sections 4 and 7'
- elif journey=='Travel home from an assignment':
-  decision='Potentially relevant: **Get You Home** rules, depending on assignment and residence.'
-  info='Ordinary journeys home do not establish entitlement; separation, qualifying residence and assignment details matter.'
-  section='JSP 752 Chapter 7, Section 4'
- elif journey=='Moving on assignment':
-  decision='Potentially relevant: **assignment travel / relocation expenses**.'
-  info='Official assignment instructions, the nature of the move and qualifying criteria determine which provisions could apply.'
-  section='JSP 752; verify the applicable assignment/relocation provision in the current document'
- else:
-  return ('Insufficient information to identify the claim category.','Select a journey type so we can direct you to the relevant chapter.','JSP 752 (current version)')
- if approved=='No' and journey=='Authorised duty journey':info+=' Check with your unit admin before claiming.'
- if evidence=='No':info+=' Claim supporting evidence may be required.'
- return decision,info,section
-
-def rank_guides(query):
- q=re.sub(r'[^a-z0-9 ]',' ',query.lower())
- words=set(q.split())-{'can','i','the','a','of','my','to','for','is','do','how','what','when','be','and','in','get','claim','am','with','on','an'}
- matches=[]
- for item in GUIDES:
-  terms=set(item['terms'].split())
-  common=len(words & terms)
-  candidates=[item['title']]+item['questions']
-  similarity=max(difflib.SequenceMatcher(None,q,ex.lower()).ratio() for ex in candidates)
-  score=common*3+similarity
-  if common or similarity>.48:matches.append((score,item))
- return [item for _,item in sorted(matches,key=lambda t:-t[0])]
-
-
 if page==PAGES[0]:
- st.subheader('Your military life, in one place')
- cols=st.columns(3)
- for col,l,v in zip(cols,['Service','Rank','Years served'],[p['service'],p['rank'],p['years']]):
-  with col:tile(l,v)
- st.markdown('### Relevant to your profile')
- if p.get('dob'):
-  st.caption(f'Approximate age: {date.today().year-p["dob"].year-((date.today().month,date.today().day)<(p["dob"].month,p["dob"].day))} (from test birth date).')
- if p.get('dependent_count',0)>0:st.info(f'👪 {p["dependent_count"]} dependants recorded: explore family allowances and education guidance; eligibility is not automatic.')
- if p.get('rank_history'):st.caption(f'{len(p["rank_history"])} dated career milestones recorded in profile.')
- if p.get('join_date'):
-  verified_years=max(0,(date.today()-p['join_date']).days//365)
-  st.caption(f'Entered start date: {p["join_date"]:%d %b %Y} — approximately {verified_years} calendar years elapsed (not verified qualifying service).')
- if p.get('rank')=='Staff Sergeant' and profile_pay():
-  st.info(f'💷 **Published OR7 pay:** {money(profile_pay())} annual 2026 main-scale rate for your selected supplement and increment. Check the actual payable rate and pensionable earnings before using in a forecast.')
- if p.get('years',0)>=15:
-  st.info('🏦 **Pension milestone to review:** Your years served make it worth checking AFPS 15 EDP rules; standard eligibility also requires age 40 and 20 qualifying years. Not an eligibility award.')
- if p.get('posting')=='Upcoming assignment / move':
-  st.info('🏡 **Posting flagged:** investigate JSP 752 relocation/travel allowances and JSP 464 accommodation. No entitlement is assumed.')
- if p.get('family')=='Dependants / children':
-  st.info('👪 **Family support:** explore childcare and education schemes. Household circumstances and eligibility rules matter.')
- if p.get('added_pension')=='Purchased / active contract':
-  st.info('🏦 **Added Pension:** include the entitlement from your actual contract or official statement when forecasting. It is not calculated automatically here.')
- st.markdown('### Explore Forces HQ')
- st.caption('Tap any section to open it. Every tool is available here as well as in the optional menu.')
- descriptions=[('🎖️ My profile','Build your linked service and family timeline.'),('💷 My money','Review pay, budget and savings scenarios.'),('🎯 Entitlements','Explore benefits relevant to your situation.'),('📚 JSP finder','Ask a question and follow the policy reference.'),('📅 My career','Plan promotions, reporting and milestones.'),('✍️ Achievement assistant','Prepare evidence for appraisals.'),('🏡 Life & future','Housing, family and leaving the Services.'),('🏦 Pension planner','Explore future AFPS 15 accrual and official tools.')]
- for start in range(0,len(descriptions),2):
-  c1,c2=st.columns(2)
-  for c,item in zip((c1,c2),descriptions[start:start+2]):
-   with c:
-    with st.container(border=True):
-     st.button(item[0],key='home_nav_'+str(start)+item[0],use_container_width=True,on_click=navigate,args=(item[0],))
-     st.caption(item[1])
- st.info('Start with **My profile** to tailor the suggestions, and then use the **JSP finder** to investigate a particular entitlement.')
- st.caption('Profile information is shared across sections for this session only; it is not saved to an account.')
+ with st.container(key='welcome',border=True):
+  st.markdown('**Welcome back**')
+  summary=' · '.join(str(p.get(field)) for field in ('rank','service') if p.get(field) and p.get(field)!='Not specified')
+  st.caption(summary or 'Your demo profile')
+  if not st.session_state.get('profile_applied'):st.caption('Example profile · Update Profile before using this context')
+ with st.form('home_ask',clear_on_submit=False):
+  st.text_input('Ask Forces HQ',key='home_question',placeholder='Can I claim my lunch back today?',max_chars=1500)
+  st.form_submit_button('Ask Forces HQ',on_click=ask_home,use_container_width=True)
+ with st.container(key='dashboard'):
+  cards=[('Policy','Find JSP answers',4),('Claims','Check allowances',3),('Money','Pay and pensions',8),('Career','Personal development',5)]
+  for start in (0,2):
+   for col,(title,detail,index) in zip(st.columns(2),cards[start:start+2]):
+    with col:
+     st.button(title+'\n'+detail,key='dashboard_'+title,on_click=navigate,args=(PAGES[index],),use_container_width=True)
+ st.caption('Guided document search · Fictional data only')
+ if st.session_state.events:
+  next_event=linked_milestones(p,st.session_state.events)[0]
+  st.caption('Career: '+next_event['label']+' · '+next_event['date'])
 
 elif page==PAGES[1]:
  st.subheader('🎖️ My military profile')
@@ -255,7 +233,7 @@ elif page==PAGES[1]:
    accom=ui.selectbox('Accommodation',['Not specified','SFA','SLA','Private rented','Own home','Substitute accommodation','Other'],index=choose_index(['Not specified','SFA','SLA','Private rented','Own home','Substitute accommodation','Other'],p.get('accommodation_type','Not specified')),key='v07_accom')
    schemes=ui.multiselect('Scheme membership (self-reported; not verified)',['AFPS 75','AFPS 05','AFPS 15','RFPS 05','Not sure'],default=[x for x in p.get('pension_schemes',['Not sure']) if x in ['AFPS 75','AFPS 05','AFPS 15','RFPS 05','Not sure']],key='v07_schemes')
    exit_set=ui.checkbox('Record planned leaving date',value=bool(p.get('planned_exit_set') or p.get('planned_exit')),key='v07_exit_set')
-   exit_date=ui.date_input('Planned exit',value=p.get('planned_exit'),min_value=date.today(),max_value=date(2080,12,31),disabled=not exit_set,key='v07_exit',format='DD/MM/YYYY')
+   exit_date=ui.date_input('Planned exit',value=p.get('planned_exit'),min_value=min(date.today(),p.get('planned_exit') or date.today()),max_value=date(2080,12,31),disabled=not exit_set,key='v07_exit',format='DD/MM/YYYY')
   submitted=st.button('Update linked demo profile',use_container_width=True)
  profile_errors=[]
  if join_date_set and join_date is None:profile_errors.append('Choose a date joined, or untick Record enlistment date.')
@@ -268,6 +246,7 @@ elif page==PAGES[1]:
  if submitted and not profile_errors:
   # Draft widgets have separate keys; apply only a valid, explicitly saved profile.
   st.session_state.profile={**p,'service':service,'rank':rank,'cap_badge':cap.strip() or 'Not specified','trade':trade.strip() or 'Not specified','years':years,'report':report,'transfer_history':transfer,'pay_supplement':band if isinstance(band,int) else None,'pay_increment':point if isinstance(point,int) else None,'verified_pensionable_salary':float(salary) if salary>0 else None,'salary_verified':bool(sal_check and salary>0),'specialist_pay':specialist,'posting':posting,'family':family,'added_pension':added,'join_date':join_date if join_date_set else None,'join_date_set':join_date_set,'dob':dob if dob_set else None,'dob_set':dob_set,'employment_type':employment,'posting_location':posting_location.strip(),'expected_posting_location':expected_posting_location.strip(),'family_status':family_status,'dependent_count':dep_count,'dependent_ages':dep_ages.strip(),'accommodation_type':accom,'pension_schemes':schemes,'planned_exit':exit_date if exit_set else None,'planned_exit_set':exit_set,'family':'Dependants / children' if dep_count>0 else family}
+  st.session_state.profile_applied=True
   st.session_state.profile_saved=True
   rerun_with_retained_inputs()
  st.markdown('#### Promotion and career timeline')
@@ -292,7 +271,37 @@ elif page==PAGES[1]:
  if p.get('rank_history') and p['rank_history'][-1]['rank']!=p['rank']:
   st.info('Your latest timeline rank differs from your selected current rank. Confirm both before using this profile.')
  st.info('Cap badge alone does NOT determine supplement, pensionable pay or allowances. Confirm trade/pay point and specialist eligibility individually. Service changes, breaks and legacy scheme membership require official history before pension forecasting.')
- st.caption('For privacy, this prototype deliberately has no persistent storage or accounts. Secure saving requires authenticated user accounts, protected storage and access controls in a later release.')
+ with st.expander('Save or restore an encrypted profile'):
+  st.caption('Download a password-encrypted file to keep structured profile settings and career dates between sessions. No account or server database. Posting locations, free-text notes, questions and achievements are excluded. Keep this file and its passphrase safe; there is no recovery service.')
+  with st.form('save_profile',clear_on_submit=True):
+   backup_password=st.text_input('Backup passphrase (at least 12 characters)',type='password')
+   create_backup=st.form_submit_button('Prepare encrypted profile')
+  if create_backup:
+   try:
+    st.session_state.profile_backup_file=profile_backup.save(p,st.session_state.events,backup_password)
+   except ValueError as exc:st.error(str(exc))
+  if st.session_state.get('profile_backup_file'):
+   st.download_button('Download encrypted profile',st.session_state.profile_backup_file,file_name='forces-hq-profile.fhq',mime='application/octet-stream')
+  with st.form('restore_profile',clear_on_submit=True):
+   uploaded=st.file_uploader('Encrypted profile file',type=['fhq'])
+   restore_password=st.text_input('Restore passphrase',type='password')
+   restore_confirm=st.checkbox('Replace my current structured profile and career dates from this file')
+   restore=st.form_submit_button('Restore encrypted profile')
+  if restore:
+   if not uploaded or not restore_confirm:st.error('Choose a backup and confirm replacement first.')
+   else:
+    try:
+     restored=profile_backup.load(uploaded.getvalue(),restore_password)
+     st.session_state.pending_profile_restore=restored
+     st.session_state.pop('profile_backup_file',None)
+     rerun_with_retained_inputs()
+    except ValueError as exc:st.error(str(exc))
+  if st.button('Discard prepared backup from this session'):
+   st.session_state.pop('profile_backup_file',None)
+   rerun_with_retained_inputs()
+ if st.session_state.events:
+  with st.expander('Linked career milestones'):
+   for event in linked_milestones(p,st.session_state.events):st.write(event['date']+' · '+event['label'])
 
 elif page==PAGES[2]:
  st.subheader('💷 My money')
@@ -326,10 +335,12 @@ elif page==PAGES[2]:
 
 elif page==PAGES[3]:
  st.subheader('🎯 Entitlements explorer')
- st.write('Choose a situation to find **schemes to investigate**, not an automatic entitlement decision.')
+ st.caption('Existing scheme summaries are starting points, not verified entitlement decisions. Use Check this in policy for document evidence.')
  if p.get('accommodation_type') not in (None,'Not specified'):st.caption('Linked accommodation context: '+p['accommodation_type'])
  if p.get('posting')=='Upcoming assignment / move':st.info('Based on your profile: relocation/travel and accommodation guidance may be particularly relevant.')
  if p.get('family')=='Dependants / children' or p.get('dependent_count',0)>0:st.info('Based on your profile: consider family, childcare and education support. Eligibility is not established.')
+ if p.get('posting')=='Upcoming assignment / move':
+  st.button('Check posting allowances',on_click=ask_opportunity,args=('What allowances might apply when I move posting?',))
  situations=['All opportunities','Buying a home','Being posted / moving','Duty travel','Accommodation','Family','Leaving the Services']
  selected=ui.selectbox('What is happening in your life?',situations)
  shown=OPPORTUNITIES if selected=='All opportunities' else [x for x in OPPORTUNITIES if x['topic']==selected or (selected=='Being posted / moving' and 'posting' in x['keywords'])]
@@ -337,65 +348,18 @@ elif page==PAGES[3]:
   with st.expander(x['name'],expanded=len(shown)<=2):
    st.write(x['summary'])
    st.caption('When to investigate: '+x['when'])
-   st.write('**Policy / guidance:** '+x['policy'])
+   st.write('**Existing policy pointer (not verified in this session):** '+x['policy'])
    st.write('**What to do next:** '+x['action'])
    st.link_button('Open official source',x['url'])
+   st.button('Check this in policy',key='policy_'+x['name'],on_click=ask_opportunity,args=('What conditions apply to '+x['name']+'?',))
  st.warning('The app does not assess final eligibility, calculate claim values or submit claims. Confirm the current policy, application route and exceptions with authorised unit staff.')
 
 elif page==PAGES[4]:
  st.subheader('🔎 Ask Forces HQ')
- st.write('**Describe your situation in plain English.** We identify the closest topic, then ask what matters before linking you to the policy. This is curated guidance rather than full-document search.')
- query=ui.text_input('What do you need help with?',placeholder='e.g. Can I claim fuel when I drive to my new unit?',key='guided_search')
- st.caption(f'Profile context (session only): {p["service"]}, {p["rank"]}; these are hints, not eligibility evidence.')
- st.caption('Try: “Claiming fuel”, “My MPAR is due”, “I am moving house”, or “Can I buy extra pension?”')
- if not query.strip():
-  st.markdown('#### Popular questions')
-  for guide in GUIDES:
-   with st.expander(guide['title']):
-    for question in guide['questions']:st.write('• '+question)
- else:
-  ranked=rank_guides(query)
-  if not ranked:
-   st.warning('We cannot confidently match that question to the curated guidance yet. Try a simpler description; do not rely on a guessed policy result.')
-  else:
-   for pos,g in enumerate(ranked[:3]):
-    with st.container(border=True):
-     st.markdown(('#### Best matching guide: ' if pos==0 else '#### Related guide: ')+g['title'])
-     st.write(g['answer'])
-     st.markdown('**A few details that could change the answer:**')
-     for qn in g['ask']:st.write('• '+qn)
-     if pos==0:
-      st.markdown('**Quick checks — get a contextual answer:**')
-      if g['title']=='Fuel, mileage and travel claims':
-       journey=ui.selectbox('What sort of journey was this?',['Please select','Ordinary home-to-work journey','Authorised duty journey','Travel home from an assignment','Moving on assignment'],key='v07_journey')
-       approved=ui.selectbox('Was the journey / private vehicle authorised where required?',['Not sure','Yes','No'],key='v07_approved')
-       evidence=ui.selectbox('Do you have supporting documents or mileage records?',['Not sure','Yes','No'],key='v07_evidence')
-       decision,why,section=travel_assessment(journey,approved,evidence)
-       st.markdown('#### Based on your answers')
-       st.info(decision+'\n\n'+why+'\n\n**Relevant section:** '+section)
-      else:
-       answers=[]
-       for idx,question in enumerate(g['ask']):
-        answers.append(ui.selectbox(question,['Not sure','Yes','No'],key=f'v07_search_{idx}_{g["title"]}'))
-       if all(x=='Yes' for x in answers):st.info('Your answers suggest this policy topic may be relevant. This is **not** a determination of eligibility; confirm the specific requirements and exceptions.')
-       elif any(x=='No' for x in answers):st.info('At least one answer may affect eligibility. Check the linked rules and ask your unit specialist about exceptions before claiming.')
-       else:st.info('The current answers are not enough to assess eligibility. Use the policy sources below to identify the missing information.')
-     if g['title'] in POLICY_TOPIC_REFS:
-      st.markdown('**Identified chapter and section references:**')
-      for topic,ref,url in POLICY_TOPIC_REFS[g['title']]:st.markdown(f'- **{topic}:** [{ref}]({url})')
-      st.caption('Chapter and section pointers are sourced from published MOD guidance. Exact paragraph numbers and applicability have not been verified against each provision of version 67; do not treat this as a paragraph-level legal citation.')
-     st.markdown('**Your next step:** '+g['next'])
-     st.markdown('**Official sources:**')
-     for sid in g['sources']:
-      source=next((x for x in POLICIES if x['id']==sid),None)
-      if source:st.link_button(source['id']+' — '+source['title'],source['url'])
-   st.info('These are topic-level matches, not verified paragraph-level answers or decisions on eligibility. Ask unit admin or authorised specialists when policy details or exceptions determine your claim.')
- with st.expander('Browse the full starter policy index'):
-  for x in POLICIES:
-   st.markdown(f'**{x["id"]} — {x["title"]}**')
-   st.caption('Source information: '+x['review'])
-   st.link_button('Open '+x['id'],x['url'])
- st.caption('V0.8 uses curated guides, conditional responses and verified chapter/section pointers for selected topics. It does not yet extract full JSP text or verify specific paragraph numbers. Never invent a policy quotation.')
+ if not st.session_state.get('profile_applied'):st.caption('Profile context is the example profile until you apply your own choices.')
+ render_question(p,navigate,PAGES)
+ with st.expander('Browse official policy publications'):
+  for source_id,(title,url) in CATALOGUE.items():st.link_button(source_id+' — '+title,url)
 
 elif page==PAGES[5]:
  st.subheader('📅 Career & reporting milestones')
@@ -467,7 +431,7 @@ elif page==PAGES[7]:
  st.subheader('🏡 Military life & future')
  topic=ui.selectbox('What are you planning?',['Posting / relocation','Housing / buying','Family / education','Leaving / resettlement','Pension planning','Leave'])
  keys={'Posting / relocation':['JSP 752','JSP 464'],'Housing / buying':['JSP 464'],'Family / education':['Official MOD benefits','JSP 752'],'Leaving / resettlement':['JSP 534'],'Pension planning':['Pension calculator'],'Leave':['JSP 760']}
- st.write('**Start with these verified sources:**')
+ st.write('**Official publication links — check the current edition:**')
  for entry in POLICIES:
   if entry['id'] in keys[topic]:policy_link(entry)
  st.markdown('**Suggested checklist:** Check current eligibility → confirm with authorised staff → plan timings → retain only the appropriate records in approved systems.')
@@ -483,8 +447,8 @@ elif page==PAGES[8]:
  if p.get('salary_verified') and p.get('verified_pensionable_salary'):st.success(f'Linked profile: verified-by-user pensionable earnings of {money(p["verified_pensionable_salary"])} per year (not independently verified by Forces HQ).')
  if p.get('transfer_history')!='None / not recorded':st.warning('Your profile indicates a change or break in service: this simple future AFPS 15 accrual model cannot account for your complete history.')
  if p.get('added_pension')=='Purchased / active contract':st.info('Added Pension recorded in profile. This beta excludes accrued Added Pension; use an official scheme statement/quote.')
- with st.expander('✅ Real 2026 pay-table lookup — SSgt (OR7), trade supplements 1–3',expanded=True):
-  st.caption('Verified limited extract from the 2026 Armed Forces Pay Review Body, Appendix 1, Tables 1.1–1.3. Annual salary figures INCLUDE X-Factor. These are recommended 1 April 2026 rates, not a live JPA payslip or proof of pensionable earnings. Check that the rates were implemented and apply to your personal situation.')
+ with st.expander('OR7 comparison — existing 2026 source extract',expanded=False):
+  st.caption('Existing limited extract, not independently source-verified during this repair, from the 2026 Armed Forces Pay Review Body, Appendix 1, Tables 1.1–1.3. Annual salary figures INCLUDE X-Factor. These are recommended 1 April 2026 rates, not a live JPA payslip or proof of pensionable earnings. Check that the rates were implemented and apply to your personal situation.')
   a,b=st.columns(2)
   with a: band=ui.selectbox('Trade supplement', [1,2,3],index=([1,2,3].index(p['pay_supplement']) if p.get('pay_supplement') in [1,2,3] else 0),key='pay_band_lookup')
   with b: point=ui.selectbox('OR7 increment level',list(range(1,13)),index=(p['pay_increment']-1 if p.get('pay_increment') in range(1,13) else 0),key='pay_inc_lookup')
@@ -504,6 +468,12 @@ elif page==PAGES[8]:
  if p.get('salary_verified') and p.get('verified_pensionable_salary'):
   if st.button('Use linked profile earnings in this scenario'):
    st.session_state[ui.key('pension_annual')]=float(p['verified_pensionable_salary'])
+   st.session_state.pop('pension_result',None)
+ if p.get('join_date') or p.get('planned_exit'):
+  st.caption(f"Linked service dates: {p.get('join_date') or 'unknown'} → {p.get('planned_exit') or 'unknown'}. Calendar dates do not establish qualifying service.")
+ if p.get('planned_exit') and 1 <= (p['planned_exit']-date.today()).days//365 <= 30:
+  if st.button('Use complete calendar years to planned exit as scenario horizon'):
+   st.session_state[ui.key('More years of AFPS 15 accrual to model')]=(p['planned_exit']-date.today()).days//365
    st.session_state.pop('pension_result',None)
  st.caption('Scenario inputs are retained separately from your profile. You can edit them or explicitly copy linked profile earnings or a comparison pay figure.')
  with st.expander('Why do pay bands and specialist payments matter?',expanded=False):
@@ -553,32 +523,33 @@ elif page==PAGES[8]:
  st.link_button('Official Armed Forces pension calculator', 'https://www.gov.uk/armed-forces-pension-calculator')
  st.caption('Your exact benefits can depend on legacy service, AFPS 05/15, the 2015 Remedy, service dates and other factors. Use official figures, not guessed accrual.')
  st.divider()
- st.markdown('#### 3. Understand purchasing Added Pension')
- st.write('AFPS 15 members may be able to buy additional annual pension through an Added Pension contract. There are member-only and member-and-dependants options. Official pricing uses actuarial factors and scheme rules. A quotation can be requested with **Form 6**; a separate **Form 6A** covers purchasing or cancelling.')
- st.link_button('Official Added Pension forms (6 / 6A)', 'https://www.gov.uk/guidance/veterans-uk-armed-forces-pensions-forms')
- st.link_button('Official pensions guidance and Added Pension tools', 'https://www.gov.uk/guidance/pensions-and-compensation-for-veterans')
- st.divider()
- st.markdown('#### 4. Explore an official-quote scenario')
- st.write('Only enter figures from an **actual official quote**, or choose the fictional demo. We do **not** convert a £200/month contribution into guaranteed extra pension without a quote.')
- demo=ui.checkbox('Use fictional demonstration figures',value=True)
- if demo:
-  cost=ui.number_input('Fictional one-off contract cost (£)',100,100000,6000,100,disabled=True)
-  extra=ui.number_input('Fictional extra gross annual pension at payment (£)',10,20000,420,10,disabled=True)
- else:
-  cost=ui.number_input('Cost of Added Pension contract from your quote (£)',0,1000000,0,100)
-  extra=ui.number_input('Extra gross annual pension from your quote (£)',0,100000,0,10)
- years=ui.slider('Illustrative number of years in payment',1,40,20)
- with st.container(border=True):
-  st.metric('Additional gross pension each year (quoted scenario)',money(extra))
-  st.metric('Total gross payments across illustrated years',money(extra*years))
-  st.metric('Illustrative gross payments minus quoted cost',money(extra*years-cost))
-  st.caption('Simple nominal arithmetic ONLY. Not a break-even recommendation: ignores timing, tax, inflation, survivor benefits, life expectancy, scheme limits, EDP effects and the time value of money. It is not a forecast of an investment balance. Fictional demonstration costs and benefits are invented solely for testing.')
- st.info('If you qualify for AFPS 15 Early Departure Payments, qualifying Added Pension may also affect EDP benefits. This app does not calculate EDP: use official calculators and a scheme-specific quote.')
- st.markdown('#### 5. Key questions before deciding')
- for item in ['Which AFPS schemes and remedy options apply to my service?','Do I need member-only or member-and-dependants benefits?','What does the official quote say, including permitted payment methods?','How do inflation, tax, EDP eligibility and retirement dates affect the outcome?','Would a different savings or pension arrangement better suit my wider objectives?']:
-  st.write('• '+item)
- st.warning('Do not enter service numbers, official statements or identifiable financial data into this public demonstration. Seek regulated independent financial advice for individual pension decisions.')
+ with st.expander('Added Pension quotes and guidance'):
+  st.markdown('#### 3. Understand purchasing Added Pension')
+  st.write('AFPS 15 members may be able to buy additional annual pension through an Added Pension contract. There are member-only and member-and-dependants options. Official pricing uses actuarial factors and scheme rules. A quotation can be requested with **Form 6**; a separate **Form 6A** covers purchasing or cancelling.')
+  st.link_button('Official Added Pension forms (6 / 6A)', 'https://www.gov.uk/guidance/veterans-uk-armed-forces-pensions-forms')
+  st.link_button('Official pensions guidance and Added Pension tools', 'https://www.gov.uk/guidance/pensions-and-compensation-for-veterans')
+  st.divider()
+  st.markdown('#### 4. Explore an official-quote scenario')
+  st.write('Only enter figures from an **actual official quote**, or choose the fictional demo. We do **not** convert a £200/month contribution into guaranteed extra pension without a quote.')
+  demo=ui.checkbox('Use fictional demonstration figures',value=True)
+  if demo:
+   cost=ui.number_input('Fictional one-off contract cost (£)',100,100000,6000,100,disabled=True)
+   extra=ui.number_input('Fictional extra gross annual pension at payment (£)',10,20000,420,10,disabled=True)
+  else:
+   cost=ui.number_input('Cost of Added Pension contract from your quote (£)',0,1000000,0,100)
+   extra=ui.number_input('Extra gross annual pension from your quote (£)',0,100000,0,10)
+  years=ui.slider('Illustrative number of years in payment',1,40,20)
+  with st.container(border=True):
+   st.metric('Additional gross pension each year (quoted scenario)',money(extra))
+   st.metric('Total gross payments across illustrated years',money(extra*years))
+   st.metric('Illustrative gross payments minus quoted cost',money(extra*years-cost))
+   st.caption('Simple nominal arithmetic ONLY. Not a break-even recommendation: ignores timing, tax, inflation, survivor benefits, life expectancy, scheme limits, EDP effects and the time value of money. It is not a forecast of an investment balance. Fictional demonstration costs and benefits are invented solely for testing.')
+  st.info('If you qualify for AFPS 15 Early Departure Payments, qualifying Added Pension may also affect EDP benefits. This app does not calculate EDP: use official calculators and a scheme-specific quote.')
+  st.markdown('#### 5. Key questions before deciding')
+  for item in ['Which AFPS schemes and remedy options apply to my service?','Do I need member-only or member-and-dependants benefits?','What does the official quote say, including permitted payment methods?','How do inflation, tax, EDP eligibility and retirement dates affect the outcome?','Would a different savings or pension arrangement better suit my wider objectives?']:
+   st.write('• '+item)
+  st.warning('Do not enter service numbers, official statements or identifiable financial data into this public demonstration. Seek regulated independent financial advice for individual pension decisions.')
 
 st.divider()
-st.caption('Forces HQ V0.8 • Independent educational prototype • No database, real AI, account login, full-text JSP search, official pension calculations, reminders or JPA integration')
+st.caption('Forces HQ • Independent educational app · Not an official MOD service')
 retain_hidden_inputs()
