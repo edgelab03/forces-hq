@@ -1,61 +1,84 @@
-"""Shared Ask experience used by Home and policy finder."""
+"""ASK → ASSESS → EXPLAIN → EVIDENCE → ACT, with source-gated decisions."""
 import streamlit as st
-from policy_engine import PolicyIndex, INTENTS, CATALOGUE, answer, classify
+from policy_engine import PolicyIndex, INTENTS, CATALOGUE, classify
+from decision_engine import assess, verified_profile_facts, ELIGIBLE, INELIGIBLE, MORE, UNVERIFIED, facts_from_question
+from benefit_ui import render_condition
 from session_inputs import SessionInputs
 
 
-def render_question(profile,navigate,pages):
-    ui=SessionInputs(pages[4])
-    question=ui.text_input('What do you need help with?',placeholder='Can I claim my lunch back today?',key='guided_search',max_chars=1500)
-    st.caption('Document search and guided checks · No generative AI or automatic eligibility decisions')
-    if not question.strip():
-        st.info('Ask about meals, mileage, posting, pensions, leave or career support.')
-        return
-    st.session_state.active_question=question
-    intent=classify(question)
-    topic=INTENTS.get(intent,{})
-    circumstances={}
-    if topic.get('questions'):
-        with st.expander('Clarify your circumstances',expanded=True):
-            for key,label,options in topic['questions']:
-                circumstances[key]=ui.selectbox(label,options,key=key)
-    result=answer(question,profile,circumstances)
-    st.markdown('#### '+result['subject'])
-    st.markdown('**Answer**')
-    st.write(result['answer'])
-    # Keep authorisation status explicit; profile data cannot award an allowance.
-    if intent=='mileage' and circumstances.get('v07_approved')=='No':
-        st.info('Duty mileage is not confirmed without the required authorisation. Check with unit admin before claiming.')
-    st.caption(result['status'])
-    st.markdown('**Why**')
-    if result['missing']:
-        st.write('Still unknown: '+'; '.join(result['missing']))
-    else:
-        st.write('The circumstances are recorded, but exceptions, current rules and evidence still require checking. These answers do not confirm eligibility.')
-    st.markdown('**Policy reference and supporting evidence**')
-    if not result['hits']:
-        st.warning('Source unavailable: no relevant passage is available in the local official-document index. I cannot verify a chapter, paragraph, quotation or entitlement for this question.')
-        for source_id in result['source_ids']:
-            if source_id in CATALOGUE:st.link_button('Check official publication: '+source_id,CATALOGUE[source_id][1])
-    else:
-        for hit in result['hits']:
-            locator=' · '.join(v for v in (hit['source_id'],hit['chapter'],hit['section'],('paragraph '+hit['paragraph']) if hit['paragraph'] else '',f"PDF page {hit['page']}") if v)
-            st.markdown('**'+locator+'**')
-            st.caption('Extract from the indexed document (whitespace normalised)')
-            st.write(hit['text'][:500]+('…' if len(hit['text'])>500 else ''))
-            st.link_button('Open source at page '+str(hit['page']),hit['url']+'#page='+str(hit['page']))
-            st.caption('Retrieved '+hit['retrieved_at'][:10]+' · SHA-256 '+hit['sha256'][:12]+' · Check publication page for later revisions')
-    st.markdown('**What applies to me**')
-    st.write(result['context'])
-    st.markdown('**Next step**')
-    st.write('Resolve the missing circumstances above, read the full provision and exceptions, and confirm the authorised claim or advice route with unit staff. No claim has been submitted.')
-    related={'entitlements':(3,'Explore related entitlements'),'pension':(8,'Open pay and pension scenario'),'career':(5,'Open career milestones')}
-    if result['related'] in related:
-        index,label=related[result['related']]
-        st.button(label,on_click=navigate,args=(pages[index],),key='ask_related')
-    with st.expander('Source availability and search method'):
-        status=PolicyIndex().status()
-        st.write('Local corpus: '+status['state'])
-        st.caption('Full-text BM25 retrieval with subject expansion and relevance filters. Clarifications are retained in this session. The question and profile are not sent to an external AI service. A retrieved passage is evidence, not an eligibility ruling.')
-        for document in status.get('documents',[]):st.caption(document['source_id']+' · '+document['title']+' · '+document['retrieved_at'][:10])
-        for error in status.get('errors',[]):st.caption(str(error.get('source',''))+': retrieval unavailable')
+def render_question(profile,navigate,pages,open_benefit=None):
+ ui=SessionInputs(pages[4]);index=PolicyIndex()
+ if ui.key('guided_search') not in st.session_state:st.session_state[ui.key('guided_search')]=st.session_state.get('active_question','')
+ question=ui.text_input('What do you need help with?',placeholder='Can I claim my lunch back yesterday?',key='guided_search',max_chars=1500)
+ st.session_state.active_question=question
+ if not question.strip():
+  st.caption('Ask about a meal, mileage, buying a home, pay or career support.')
+  return
+ st.session_state.active_question=question
+ category=classify(question);topic=INTENTS.get(category,{})
+ applied=st.session_state.get('profile_applied',False)
+ st.caption(profile['service']+' · '+profile['rank']+' · User-confirmed profile' if applied else 'Example profile excluded from eligibility assessment')
+ stored=st.session_state.setdefault('decision_facts',{}).setdefault(category or 'unknown',{})
+ if category=='fhtb':stored=st.session_state.setdefault('benefits',{}).setdefault('fhtb',{}) .setdefault('facts',{})
+ signatures=st.session_state.setdefault('assessment_questions',{})
+ if signatures.get(category)!=question:
+  derived=facts_from_question(category,question)
+  date_key=str(category)+'.incident_date'
+  if date_key in derived and date_key in stored and derived[date_key]['value']!=stored[date_key]['value']:
+   stored.clear()
+   for key,kind in st.session_state.get('condition_types',{}).items():
+    if key.startswith(ui.key('condition:')):st.session_state[key]='Not sure' if kind=='choice' else None
+  stored.update(derived)
+  signatures[category]=question
+ result=assess(category,verified_profile_facts(profile,applied)|stored,index)
+ st.subheader(topic.get('label','Your question'))
+ with st.container(border=True,key='assessment_result'):
+  st.markdown('**'+result['status']+'**')
+  st.write(result['reason'])
+  st.caption('Preliminary assessment from stated circumstances; not an authoritative determination.')
+ if result['missing']:
+  st.caption('One detail to continue')
+  render_condition(result['missing'][0],ui,stored)
+ if category in ('fhtb','rle') and open_benefit:
+  st.button('Continue your home-buying guide',on_click=open_benefit,key='ask_fhtb',type='primary',use_container_width=True)
+ else:
+  related={'meals':(3,'Explore claim support'),'mileage':(3,'Explore claim support'),'edp':(8,'Open pension modelling'),'housing':(3,'Explore housing support'),'career':(5,'Open career milestones')}
+  if category in related:
+   target,label=related[category];st.button(label,on_click=navigate,args=(pages[target],),key='assessment_action',use_container_width=True)
+ if result['status']==UNVERIFIED:
+  st.caption('The next step is source verification. Supplying more yes/no answers cannot replace missing policy evidence.')
+ with st.expander('Evidence, exceptions and reasoning'):
+  if result['evidence']:
+   rule=result['rule'];st.caption('Rule '+rule['id']+' · '+rule['version']+' · Effective '+rule['effective_from']+' · Reviewed '+rule['reviewed_on'])
+   for proof in result['evidence']:
+    st.markdown('**'+proof['source_id']+' — '+proof['title']+'**')
+    st.caption(proof['document_version']+' · '+proof['chapter']+' · '+proof['section']+' · paragraph '+proof['paragraph'])
+    st.write(proof['quote'])
+    st.link_button('Open exact supporting provision',proof['url']+'#page='+str(proof['page']))
+   for exception in rule.get('exceptions',[]):st.write('Restriction: '+exception)
+   for item in result['trace']:st.write(('Satisfied: ' if item['passed'] else 'Not satisfied: ')+item['fact'])
+  else:
+   st.warning('Source unavailable for a verified decision: no approved current rule has matching primary-source evidence. No paragraph, quotation or eligibility ruling is invented.')
+   hits=index.search(question)
+   if hits:st.caption('Retrieved passages below have not been reviewed as eligibility rules.')
+   for hit in hits:
+    st.write(hit['text'][:500])
+    st.caption(hit['source_id']+' · '+(hit['paragraph'] or 'Unnumbered passage')+' · Retrieved '+hit['retrieved_at'][:10])
+    st.link_button('Read retrieved passage at its PDF page',hit['url']+'#page='+str(hit['page']))
+   for source_id in topic.get('sources',[]):
+    if source_id in CATALOGUE:st.link_button('Official publication — '+source_id,CATALOGUE[source_id][1])
+  if stored:
+   st.caption('Your retained answers')
+   for key,value in stored.items():st.write(key+': '+str(value['value']))
+   def reset_answers():
+    stored.clear()
+    signatures.pop(category,None)
+    for key,kind in st.session_state.get('condition_types',{}).items():
+     if key.startswith(ui.key('condition:')):st.session_state[key]='Not sure' if kind=='choice' else None
+   st.button('Change my answers',key='reset_decision_answers',on_click=reset_answers)
+  st.caption('Deterministic assessment and local document retrieval. No official service-record or JPA integration.')
+ if result['claim_steps']:
+  with st.expander('Verified application process'):
+   for step in result['claim_steps']:
+    st.write(step['text'])
+    if step.get('url'):st.link_button('Open application resource',step['url'])

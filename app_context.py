@@ -23,6 +23,18 @@ value back on the next rerun. Explicit assignments are intentional for a restore
 """
     state['profile']={**state['profile'],**restored['profile']}
     state['events']=restored['events']
+    from benefit_journeys import restore_benefits
+    state['benefits']=restore_benefits(restored.get('benefits'))
+    from benefit_journeys import TASKS
+    progress=state['benefits']['fhtb']
+    for key in list(state.get('_input_keys',[])):
+        if key.startswith('input:journey:fhtb:'):state.pop(key,None)
+    restored_widgets={'interested':progress['interested'],'completed':progress['completed'],'nation':progress['nation']}
+    restored_widgets.update({'task:'+key:progress['checklist'].get(key,False) for key in TASKS})
+    restored_widgets.update({'budget:'+key:progress['budget'].get(key,10 if key=='years' else 5.0 if key=='mortgage_rate' else 0.0) for key in ('price','deposit','advance','mortgage','tax','legal','survey','searches','registration','other','years','mortgage_rate')})
+    for key,value in restored_widgets.items():state['input:journey:fhtb:'+key]=value
+    state['fhtb_edit_budget']=False
+
     state['profile_applied']=True
     state['profile_saved']=True
     p=state['profile']

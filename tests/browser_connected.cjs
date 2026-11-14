@@ -8,7 +8,7 @@ async function settled(p){
  await p.waitForFunction(()=>document.querySelectorAll('[data-testid="stSkeleton"]').length===0);
  assert.equal(await p.locator('[data-testid="stException"]').count(),0);
 }
-async function go(p,name){await p.getByRole('radiogroup',{name:'Primary navigation'}).getByText(name,{exact:true}).click();await settled(p);}
+async function go(p,name){await p.getByRole('radiogroup',{name:'Primary navigation'}).getByText(name,{exact:true}).click();const headings={Money:'Your money, at a glance',Policy:'🔎 Ask Forces HQ',Profile:'🎖️ My military profile',Career:'📅 Career & reporting milestones',Claims:'🎯 Entitlements explorer'};await(name==='Home'?p.getByText('Welcome back',{exact:true}):p.getByRole('heading',{name:headings[name],exact:true})).waitFor();await settled(p);}
 async function choose(p,label,value){await p.getByRole('combobox',{name:label,exact:true}).click();await p.getByRole('option',{name:value,exact:true}).click();await settled(p);}
 (async()=>{
  const b=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
@@ -21,16 +21,13 @@ async function choose(p,label,value){await p.getByRole('combobox',{name:label,ex
   await input.fill('Can I claim my lunch back today?');await p.getByRole('button',{name:'Ask Forces HQ',exact:true}).click();await settled(p);
   await p.getByRole('heading',{name:'Meals and subsistence',exact:true}).waitFor();
   assert.equal(await p.getByText('Duty mileage and travel',{exact:true}).count(),0);
-  await p.getByText('Source unavailable:',{exact:false}).waitFor();
-  await choose(p,'Was a suitable meal provided or available through Service catering?','No');
+  await p.getByText('Unable to verify entitlement against current policy',{exact:true}).waitFor();
   await go(p,'Money');await go(p,'Policy');
-  assert.equal(await p.getByRole('combobox',{name:'Was a suitable meal provided or available through Service catering?',exact:true}).inputValue(),'No');
+  assert.equal(await p.getByRole('textbox',{name:'What do you need help with?',exact:true}).inputValue(),'Can I claim my lunch back today?');
   const question=p.getByRole('textbox',{name:'What do you need help with?',exact:true});
   await question.fill('What is the relevant JSP for claiming duty mileage?');await question.press('Tab');await settled(p);
   await p.getByRole('heading',{name:'Duty mileage and travel',exact:true}).waitFor();
-  await choose(p,'What sort of journey was this?','Authorised duty journey');
-  await choose(p,'Was the journey / private vehicle authorised where required?','No');
-  await p.getByText('Duty mileage is not confirmed',{exact:false}).waitFor();
+  await p.getByText('Unable to verify entitlement against current policy',{exact:true}).waitFor();
   await go(p,'Profile');await choose(p,'Service','Royal Navy');
   const salary=p.getByRole('spinbutton',{name:'Verified annual pensionable earnings (£) — optional',exact:true});await salary.fill('47000');await salary.press('Tab');
   await p.getByText('I have checked this pensionable earnings amount against official documentation',{exact:true}).click();
@@ -49,7 +46,7 @@ async function choose(p,label,value){await p.getByRole('combobox',{name:label,ex
   await restored.getByText('Save or restore an encrypted profile',{exact:true}).click();
   await restored.locator('input[type=file]').setInputFiles({name:'profile.fhq',mimeType:'application/octet-stream',buffer:data});
   await restored.getByRole('textbox',{name:'Restore passphrase',exact:true}).fill(password);
-  await restored.getByText('Replace my current structured profile and career dates from this file',{exact:true}).click();
+  await restored.getByText('Replace my current structured profile, career dates and benefit progress from this file',{exact:true}).click();
   await restored.getByRole('button',{name:'Restore encrypted profile',exact:true}).click();await settled(restored);
   try {
     await restored.waitForFunction(()=>document.querySelector('input[aria-label="Service"]')?.value==='Royal Navy',{},{timeout:10000});

@@ -8,6 +8,9 @@ from app_context import question_handoff, linked_milestones, apply_restored_prof
 from policy_ui import render_question
 from policy_engine import PolicyIndex, CATALOGUE
 import profile_backup
+from benefit_journeys import empty_progress
+from benefit_ui import render_fhtb, render_benefit_card
+from money_overview import render_money_overview
 from build_info import build_info
 from session_inputs import SessionInputs, retain_inputs, retain_hidden_inputs, rerun_with_retained_inputs
 
@@ -68,7 +71,7 @@ POLICIES=[
 ]
 
 OPPORTUNITIES=[
- {'name':'Forces Help to Buy','topic':'Buying a home','when':'Planning a property purchase or eligible move','summary':'Interest-free advance, potentially up to 50% of annual salary with a £25,000 cap, subject to conditions.','policy':'JSP 464, Vol 1 Pt 1 Ch 6','url':'https://www.gov.uk/guidance/forces-help-to-buy','action':'Check criteria and apply through JPA where eligible.','keywords':['property','home','buying']},
+ {'name':'Forces Help to Buy','topic':'Buying a home','when':'Planning a property purchase or eligible move','summary':'A MOD home-buying scheme. Use the connected guide for an evidence-gated assessment; current scheme amounts and terms require policy verification.','policy':'JSP 464, Vol 1 Pt 1 Ch 6','url':'https://www.gov.uk/guidance/forces-help-to-buy','action':'Check criteria and apply through JPA where eligible.','keywords':['property','home','buying']},
  {'name':'Disturbance and relocation expenses','topic':'Being posted / moving','when':'An assignment requires a qualifying move','summary':'Potential disturbance and other relocation support; rules differ by circumstances.','policy':'JSP 752','url':'https://www.gov.uk/government/publications/jsp-752-tri-service-regulations-for-expenses-and-allowances','action':'Check current assignment policy with unit HR before spending.','keywords':['posting','moving']},
  {'name':'Travel and subsistence','topic':'Duty travel','when':'Authorised travel or temporary duty','summary':'Potential travel, mileage and subsistence allowances where conditions are met.','policy':'JSP 752','url':'https://www.gov.uk/government/publications/guide-to-expenses-and-allowances-for-service-personnel/guide-to-expenses-and-allowances-for-service-personnel','action':'Check authorisation, receipts, relevant rates and JPA claim rules.','keywords':['travel','posting']},
  {'name':'Service accommodation','topic':'Accommodation','when':'Considering SFA, SLA or substitute accommodation','summary':'Accommodation provision depends on your status and current policy.','policy':'JSP 464','url':'https://www.gov.uk/government/publications/jsp-464-tri-service-accommodation-regulations-tsars','action':'Review housing guidance and the authorised application route.','keywords':['accommodation','posting','family']},
@@ -95,6 +98,7 @@ else:
 if 'records' not in st.session_state:st.session_state.records=[]
 if 'events' not in st.session_state:st.session_state.events=[]
 if 'budget' not in st.session_state:st.session_state.budget={}
+st.session_state.setdefault('benefits',{}).setdefault('fhtb',empty_progress())
 PAGES=['🏠 Dashboard','🎖️ My profile','💷 My money','🎯 Entitlements','📚 JSP finder','📅 My career','✍️ Achievement assistant','🏡 Life & future','🏦 Pension planner']
 if st.session_state.get('pending_profile_restore'):
  apply_restored_profile(st.session_state,st.session_state.pop('pending_profile_restore'),PAGES[1])
@@ -107,10 +111,21 @@ st.session_state.nav_primary=destination_for(st.session_state.nav_page)
 st.session_state.setdefault('nav_sidebar',st.session_state.nav_page)
 st.session_state.setdefault('nav_top',st.session_state.nav_page)
 def navigate(destination):
+ st.session_state.active_journey=None
+ st.session_state.money_overview=False
  st.session_state.nav_page=destination
  st.session_state.nav_primary=destination_for(destination)
  st.session_state.nav_sidebar=destination
  st.session_state.nav_top=destination
+
+def open_fhtb():
+ navigate(PAGES[3])
+ st.session_state.active_journey='fhtb'
+ st.session_state.benefits['fhtb']['interested']=True
+
+def open_money():
+ navigate(PAGES[2])
+ st.session_state.money_overview=True
 
 def change_section(source):
  navigate(st.session_state[source])
@@ -118,6 +133,7 @@ def change_section(source):
 def change_destination():
  destination=st.session_state.nav_primary
  navigate(PAGES[DESTINATIONS[destination][0]])
+ if destination=='Money':st.session_state.money_overview=True
 
 def ask_question(question):
  question_handoff(st.session_state,question,PAGES[4])
@@ -167,22 +183,24 @@ def profile_pay():
  return None
 
 
-if page==PAGES[0]:
+if st.session_state.get('active_journey')=='fhtb':
+ render_fhtb(p,st.session_state.get('profile_applied',False),ask_question,lambda:navigate(PAGES[3]),lambda:navigate(PAGES[1]))
+
+elif page==PAGES[0]:
  with st.container(key='welcome',border=True):
   st.markdown('**Welcome back**')
   summary=' · '.join(str(p.get(field)) for field in ('rank','service') if p.get(field) and p.get(field)!='Not specified')
   st.caption(summary or 'Your demo profile')
-  if not st.session_state.get('profile_applied'):st.caption('Example profile · Update Profile before using this context')
- with st.form('home_ask',clear_on_submit=False):
+  if not st.session_state.get('profile_applied'):st.caption('Example profile · Edit in Profile')
+ with st.form('home_ask',clear_on_submit=False,border=False):
   st.text_input('Ask Forces HQ',key='home_question',placeholder='Can I claim my lunch back today?',max_chars=1500)
-  st.form_submit_button('Ask Forces HQ',on_click=ask_home,use_container_width=True)
+  st.form_submit_button('Ask Forces HQ',on_click=ask_home,use_container_width=True,type='primary')
  with st.container(key='dashboard'):
-  cards=[('Policy','Find JSP answers',4),('Claims','Check allowances',3),('Money','Pay and pensions',8),('Career','Personal development',5)]
-  for start in (0,2):
-   for col,(title,detail,index) in zip(st.columns(2),cards[start:start+2]):
-    with col:
-     st.button(title+'\n'+detail,key='dashboard_'+title,on_click=navigate,args=(PAGES[index],),use_container_width=True)
- st.caption('Guided document search · Fictional data only')
+  cards=[('Claims','Check allowances',lambda:navigate(PAGES[3])),('Pay','Your money overview',open_money),('Housing','Plan a home purchase',open_fhtb),('Pensions','Explore your scheme',open_money),('Career','Your next step',lambda:navigate(PAGES[5]))]
+  for start in (0,2,4):
+   for col,(title,detail,action) in zip(st.columns(2),cards[start:start+2]):
+    with col:st.button(title+'\n'+detail,key='dashboard_'+title,on_click=action,use_container_width=True)
+ render_benefit_card(p,st.session_state.get('profile_applied',False),st.session_state.benefits['fhtb'],open_fhtb)
  if st.session_state.events:
   next_event=linked_milestones(p,st.session_state.events)[0]
   st.caption('Career: '+next_event['label']+' · '+next_event['date'])
@@ -191,7 +209,7 @@ elif page==PAGES[1]:
  st.subheader('🎖️ My military profile')
  if st.session_state.pop('profile_saved',False):st.success('Linked profile updated for this session. Other sections will use your choices.')
  st.caption('One linked test profile powers the dashboard, pay lookup, pension inputs and relevant guidance. Please use fictional/non-identifying data in this public demo.')
- ranks=['Private / equivalent','Lance Corporal / equivalent','Corporal / equivalent','Sergeant','Staff Sergeant','Warrant Officer','Commissioned Officer']
+ ranks=['Private / equivalent','Lance Corporal / equivalent','Corporal / equivalent','Sergeant','Staff Sergeant','Warrant Officer','Warrant Officer Class 2','Warrant Officer Class 1','Commissioned Officer']
  services=['British Army','Royal Navy','Royal Air Force','Royal Marines']
  def choose_index(items,value):return items.index(value) if value in items else 0
  with st.container(border=True):
@@ -253,7 +271,7 @@ elif page==PAGES[1]:
  st.caption('Add fictional dated promotions. Dates provide context; they do not calculate past pay, pension schemes or qualifying service.')
  with st.container(border=True):
   x,y=st.columns(2)
-  with x: hist_rank=ui.selectbox('Rank attained',['Private / equivalent','Lance Corporal / equivalent','Corporal / equivalent','Sergeant','Staff Sergeant','Warrant Officer','Commissioned Officer'])
+  with x: hist_rank=ui.selectbox('Rank attained',['Private / equivalent','Lance Corporal / equivalent','Corporal / equivalent','Sergeant','Staff Sergeant','Warrant Officer','Warrant Officer Class 2','Warrant Officer Class 1','Commissioned Officer'])
   with y: hist_date=ui.date_input('Effective date of rank',value=date(2020,1,1),min_value=date(1960,1,1),max_value=date.today())
   hist_note=ui.text_input('Optional non-identifying milestone (course, posting, qualification)')
   if st.button('Add dated milestone',use_container_width=True):
@@ -272,20 +290,20 @@ elif page==PAGES[1]:
   st.info('Your latest timeline rank differs from your selected current rank. Confirm both before using this profile.')
  st.info('Cap badge alone does NOT determine supplement, pensionable pay or allowances. Confirm trade/pay point and specialist eligibility individually. Service changes, breaks and legacy scheme membership require official history before pension forecasting.')
  with st.expander('Save or restore an encrypted profile'):
-  st.caption('Download a password-encrypted file to keep structured profile settings and career dates between sessions. No account or server database. Posting locations, free-text notes, questions and achievements are excluded. Keep this file and its passphrase safe; there is no recovery service.')
+  st.caption('Download a password-encrypted file to keep structured profile settings, career dates and home-buying progress/budget assumptions between sessions. No account or server database. Posting locations, free-text notes, questions and achievements are excluded. Keep this file and its passphrase safe; there is no recovery service.')
   with st.form('save_profile',clear_on_submit=True):
    backup_password=st.text_input('Backup passphrase (at least 12 characters)',type='password')
    create_backup=st.form_submit_button('Prepare encrypted profile')
   if create_backup:
    try:
-    st.session_state.profile_backup_file=profile_backup.save(p,st.session_state.events,backup_password)
+    st.session_state.profile_backup_file=profile_backup.save(p,st.session_state.events,backup_password,benefits=st.session_state.benefits)
    except ValueError as exc:st.error(str(exc))
   if st.session_state.get('profile_backup_file'):
    st.download_button('Download encrypted profile',st.session_state.profile_backup_file,file_name='forces-hq-profile.fhq',mime='application/octet-stream')
   with st.form('restore_profile',clear_on_submit=True):
    uploaded=st.file_uploader('Encrypted profile file',type=['fhq'])
    restore_password=st.text_input('Restore passphrase',type='password')
-   restore_confirm=st.checkbox('Replace my current structured profile and career dates from this file')
+   restore_confirm=st.checkbox('Replace my current structured profile, career dates and benefit progress from this file')
    restore=st.form_submit_button('Restore encrypted profile')
   if restore:
    if not uploaded or not restore_confirm:st.error('Choose a backup and confirm replacement first.')
@@ -302,6 +320,9 @@ elif page==PAGES[1]:
  if st.session_state.events:
   with st.expander('Linked career milestones'):
    for event in linked_milestones(p,st.session_state.events):st.write(event['date']+' · '+event['label'])
+
+elif page==PAGES[2] and st.session_state.get('money_overview'):
+ render_money_overview(p,st.session_state.get('profile_applied',False),lambda:navigate(PAGES[2]),lambda:navigate(PAGES[8]),lambda:navigate(PAGES[1]),st.session_state.get('pension_summary'))
 
 elif page==PAGES[2]:
  st.subheader('💷 My money')
@@ -351,13 +372,14 @@ elif page==PAGES[3]:
    st.write('**Existing policy pointer (not verified in this session):** '+x['policy'])
    st.write('**What to do next:** '+x['action'])
    st.link_button('Open official source',x['url'])
-   st.button('Check this in policy',key='policy_'+x['name'],on_click=ask_opportunity,args=('What conditions apply to '+x['name']+'?',))
+   if x['name']=='Forces Help to Buy':st.button('Start your home-buying guide',key='benefit_fhtb',on_click=open_fhtb,type='primary')
+   else:st.button('Check this in policy',key='policy_'+x['name'],on_click=ask_opportunity,args=('What conditions apply to '+x['name']+'?',))
  st.warning('The app does not assess final eligibility, calculate claim values or submit claims. Confirm the current policy, application route and exceptions with authorised unit staff.')
 
 elif page==PAGES[4]:
  st.subheader('🔎 Ask Forces HQ')
  if not st.session_state.get('profile_applied'):st.caption('Profile context is the example profile until you apply your own choices.')
- render_question(p,navigate,PAGES)
+ render_question(p,navigate,PAGES,open_fhtb)
  with st.expander('Browse official policy publications'):
   for source_id,(title,url) in CATALOGUE.items():st.link_button(source_id+' — '+title,url)
 
@@ -512,6 +534,7 @@ elif page==PAGES[8]:
   cumulative=0.0
   for yr in range(result_horizon):
    cumulative=cumulative*(1+result_revalue/100)+pensionable*((1+result_growth/100)**yr)/47
+  st.session_state.pension_summary={'annual_pension':cumulative}
   with st.container(border=True):
    st.metric('NEW annual AFPS 15 pension entitlement accrued during first modelled year',money(pensionable/47)+' gross pension per year from scheme pension age')
    st.metric('Combined new annual AFPS 15 pension entitlement from ONLY the future modelled years',money(cumulative)+' gross pension per year from scheme pension age')

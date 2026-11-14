@@ -37,3 +37,9 @@ APP_URL=http://127.0.0.1:8502 CHROMIUM_PATH=/usr/bin/chromium node tests/browser
 Start Streamlit on port 8502 for those browser commands. Node, Playwright and Chromium are browser-test prerequisites. Tests cover all nine existing sections, input retention, arithmetic, achievements, meal/mileage separation, missing sources, PDF ingestion/ranking, linked policy checks and encrypted new-session restore. Synthetic policy test fixtures validate code behaviour, not real military policy. Browser widths: 360px, 390px and desktop; physical Android checks remain necessary.
 
 Read [REPAIR_AUDIT.md](REPAIR_AUDIT.md) for root causes, tested scope, source/network blockers and deployment requirements. The sidebar build panel identifies the **running process**; publishing a cloud development environment neither pushes Git commits nor deploys a Streamlit host.
+
+## V1 guided benefits work
+
+The V1 product scope, source/release gates and unexecuted frontend migration proposal are in [docs/V1_PRODUCT_PLAN.md](docs/V1_PRODUCT_PLAN.md). The branch adds source-gated decision rules and a connected FHTB preparation/checklist flow; it does not claim verified scheme eligibility while production rules are unapproved. Benefit progress and budget assumptions can be included in the explicit encrypted profile backup. Validate rules with `python scripts/validate_rules.py`; the current missing-rule check intentionally fails. Learning Credits remains deferred.
+
+New exports can include V1 benefit progress and budget assumptions; older exports still restore with an empty benefit journey. Restore in the V1 app to recover that progress—older deployed code does not understand the new optional benefit payload.

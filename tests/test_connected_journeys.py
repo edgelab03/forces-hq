@@ -17,20 +17,22 @@ class ConnectedJourneys(unittest.TestCase):
         self.field('button','Ask Forces HQ').click().run()
         self.assertFalse(self.app.exception)
         self.assertEqual(self.field('text_input','What do you need help with?').value,'Can I claim my lunch back today?')
-        self.assertTrue(any('Meals and subsistence' in m.value for m in self.app.markdown))
+        self.assertTrue(any('Meals and subsistence' in m.value for m in self.app.subheader))
         self.assertFalse(any('motor mileage' in m.value.lower() for m in self.app.markdown))
-        self.field('selectbox','Was a suitable meal provided or available through Service catering?').select('No').run()
+        self.app.session_state.decision_facts={'meals':{'meals.provided':{'value':'No','provenance':'user_confirmed'}}}
         self.go('Money');self.go('Policy')
-        self.assertEqual(self.field('selectbox','Was a suitable meal provided or available through Service catering?').value,'No')
+        self.assertEqual(self.app.session_state.decision_facts['meals']['meals.provided']['value'],'No')
         self.assertTrue(any('Source unavailable' in w.value for w in self.app.warning))
     def test_entitlement_to_policy_carries_subject_and_profile(self):
         self.go('Profile')
         self.field('selectbox','Service').select('Royal Navy').run()
         self.field('button','Update linked demo profile').click().run()
         self.go('Claims')
-        self.field('button','Check this in policy').click().run()
+        self.field('button','Start your home-buying guide').click().run()
+        self.field('button','Continue').click().run()
+        self.field('button','Ask a related housing question').click().run()
         self.assertIn('Forces Help to Buy',self.field('text_input','What do you need help with?').value)
-        self.assertTrue(any('Royal Navy' in m.value for m in self.app.markdown))
+        self.assertTrue(any('Royal Navy' in m.value for m in self.app.caption))
     def test_helper_does_not_lose_question_when_policy_widget_is_hidden(self):
         state={}
         question_handoff(state,'meal on exercise','policy')

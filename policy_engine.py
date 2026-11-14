@@ -20,6 +20,8 @@ CATALOGUE = {
  'JSP 534': ('Resettlement', 'https://www.gov.uk/government/publications/tri-service-resettlement-manual-jsp-534'),
 }
 INTENTS = {
+ 'rle': {'label':'Refund of Legal Expenses — separate check', 'sources':['JSP 752'], 'pattern':r'\b(refund of legal expenses|legal expenses|new buyer legal)\b', 'terms':'refund legal expenses new buyer', 'questions':[], 'answer':'This requires a separate assessment from Forces Help to Buy.', 'related':'housing'},
+ 'fhtb': {'label':'Forces Help to Buy', 'sources':['JSP 464'], 'pattern':r'\b(forces help to buy|fhtb|buy(?:ing)? (?:a |my |our )?(?:home|house)|home[- ]buying)\b', 'terms':'forces help buy advance purchase property', 'answer':'A source-backed home-buying assessment is required.', 'questions':[], 'related':'housing'},
  'meals': {
   'label':'Meals and subsistence', 'sources':['JSP 752'],
   'pattern':r'\b(lunch|dinner|breakfast|evening meal|food|meals?|messing|subsistence)\b',
@@ -75,6 +77,7 @@ STOP = set('a an the i my can do does am is are was were be to for of in on at t
 
 def classify(question):
     """Return a subject, not an entitlement. Meals precede incidental travel."""
+    if re.search(INTENTS['meals']['pattern'], question.lower()):return 'meals'
     for name, item in INTENTS.items():
         if re.search(item['pattern'], question.lower()):
             return name
@@ -93,8 +96,8 @@ def split_pages(pages):
         paragraph = ''
         for line in raw.splitlines():
             line = line.strip()
-            heading = re.match(r'^(CHAPTER|SECTION)\s+(\d+)\b.*', line, re.I)
-            para = re.match(r'^(\d{2}\.\d{4}[a-zA-Z]?)[.\s]+(.*)', line)
+            heading = re.match(r'^(CHAPTER|SECTION)\s+(\d+|[IVXLCDM]+)\b.*', line, re.I)
+            para = re.match(r'^(?:(\d{2}\.\d{4}[a-zA-Z]?)[.\s]+|(\d{4}[a-zA-Z]?)\.\s+)(.*)', line)
             if heading or para:
                 if chunk:
                     yield dict(page=number, chapter=chapter, section=section, paragraph=paragraph, text=normalise(' '.join(chunk)))
@@ -106,7 +109,7 @@ def split_pages(pages):
                         section = line
                     paragraph = ''
                 else:
-                    paragraph, line = para[1], para[2]
+                    paragraph, line = para[1] or para[2], para[3]
             chunk.append(line)
         if chunk:
             # Limit unnumbered blocks; page is always a precise, verified locator.

@@ -1,0 +1,5 @@
+{
+  "schema_version": 1,
+  "notice": "No production eligibility rules are approved yet. Do not infer eligibility from search hits, legacy summaries or test fixtures. Populate only after primary-source and exceptions review.",
+  "rules": []
+}

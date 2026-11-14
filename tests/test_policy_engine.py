@@ -103,3 +103,7 @@ class RetrievalTests(unittest.TestCase):
             (self.path.parent/'manifest.json').write_text(value)
             self.assertEqual(self.index.status()['state'],'unavailable')
             self.assertIsInstance(self.index.status()['errors'][0],dict)
+
+    def test_four_digit_paragraph_and_roman_section_are_extracted_not_inferred(self):
+        hit=list(split_pages(['CHAPTER 99 TEST ONLY\nSECTION IV TEST ONLY\n9901. '+MEAL]))[-1]
+        self.assertEqual(hit['paragraph'],'9901');self.assertEqual(hit['section'],'SECTION IV TEST ONLY')
