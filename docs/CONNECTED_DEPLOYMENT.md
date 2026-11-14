@@ -2,6 +2,8 @@
 
 **No deployment or merge is part of this change.** The existing Streamlit service stays operational and unchanged. Stage A is a private, protected foundation, not a public multi-user release.
 
+For phone-only account setup, use the [Android Render/Vercel walkthrough](STAGE_A_PHONE_PREVIEW.md). The [deployment preparation record](STAGE_A_DEPLOYMENT_PREPARATION.md) distinguishes local container/access checks from manual hosted verification.
+
 ## Architecture
 
 Android/browser → HTTPS Next.js on Vercel → same-origin authenticated `/api/backend` gateway → independent HTTPS FastAPI service. Backend profile operations are stateless and reuse root Python validation/encryption. Never point Vercel at a process in Codex or at your laptop's localhost.

@@ -43,6 +43,6 @@ Additional onboarding, navigation and explicitly labelled Ask-demo captures are 
 - Learning Credits eligibility, AFPS 05 reconstruction, EDP calculation, verified production policy rules, automatic property-tax calculations and live JPA submission are not existing capabilities; see the inventory.
 - Independent backend hosting, Vercel environment configuration and physical Android/hosted-service acceptance are pending. Local processes do not establish Vercel connectivity.
 - Shared Basic private-preview access is implemented, **not** individual production accounts/OIDC, server-side user persistence, automatic sync, or a full security/accessibility audit. Hosting rate limits and request-log privacy must be configured before handling hosted personal data.
-- The proposed container recipe has not been built/deployed as part of this task. No merge, backend deployment or Vercel deployment was performed.
+- At original Stage A delivery, the container recipe had not been built or deployed. Subsequent [deployment preparation](../../docs/STAGE_A_DEPLOYMENT_PREPARATION.md) records the local container validation and environment qualification separately. No merge, backend deployment or Vercel deployment was performed.
 
 See [the deployment guide](../../docs/CONNECTED_DEPLOYMENT.md) for TLS, all required server-only variables, local setup, proposed hosting, authentication release gates and rollback steps; see [the data contract](../../docs/CONNECTED_API_CONTRACT.md) for the exact endpoint scope.
