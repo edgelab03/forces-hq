@@ -17,6 +17,7 @@ for(const width of [320,360,390,412,768,1280]){
  for(const button of await controls.all()){
   const box=await button.boundingBox();assert.ok(box.width>=44&&box.height>=44);
   const text=button.locator('[data-testid=stMarkdownContainer]');assert.equal(await text.evaluate(e=>e.scrollWidth>e.clientWidth),false,'Nav label is truncated');
+  assert.equal(await button.locator('p').evaluate(e=>e.getBoundingClientRect().height>parseFloat(getComputedStyle(e).lineHeight)+1),false,'Nav label wraps onto a second line');
  }
  const cards=[];for(const label of ['Your pay','Housing','Pension','Learning'])cards.push(await p.getByRole('button',{name:label,exact:true}).boundingBox());
  assert.ok(Math.abs(cards[0].y-cards[1].y)<2&&cards[1].x>cards[0].x);assert.ok(Math.abs(cards[2].y-cards[3].y)<2&&cards[2].y>cards[0].y);
