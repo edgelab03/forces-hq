@@ -1,79 +1,58 @@
-# Modern Forces frontend prototype
+# Forces HQ — connected Stage A
 
-A separate Next.js 16 / React 19 / TypeScript prototype of **Home** and **Ask**. All changes are contained in `frontend/`. The existing Python app, Streamlit configuration, policy rules, deployment and pension calculations remain unchanged.
+The approved Modern Forces interface now has a real Python-backed service profile. **Only Stage A is connected**: profile validation, confirmation/updates, promotion history, confirmed Home context and user-controlled encrypted `.fhq` export/restore. The existing Streamlit application remains operational and unchanged.
 
-## Preview on an Android phone
+- [Functionality inventory](../docs/CONNECTED_FUNCTIONALITY_INVENTORY.md): actual reusable code, tests, source restrictions and missing capabilities.
+- [API/data contract](../docs/CONNECTED_API_CONTRACT.md): typed documents, endpoints, provenance and privacy boundaries.
+- [Local setup, security, hosting and rollback](../docs/CONNECTED_DEPLOYMENT.md).
+- [Connected test/visual results](docs/CONNECTED_VALIDATION.md).
 
-Use Node.js 22 LTS or later and npm. From your existing repository checkout:
+## Local preview
+
+Start the separate Python API from repository root, after setting your own random `FHQ_API_TOKEN` in the terminal environment:
 
 ```sh
-git fetch origin
-git switch feat/modern-forces-next-prototype
+python3.12 -m venv .venv-api
+.venv-api/bin/python -m pip install -r backend/requirements.txt
+.venv-api/bin/python -m uvicorn backend.api:create_app --factory --host 127.0.0.1 --port 8010 --no-access-log
+```
+
+Copy `frontend/.env.example` to ignored `frontend/.env.local`. Replace all placeholders: use the matching API token, your private preview username/password, the loopback API URL and exact frontend origin. Never use `NEXT_PUBLIC_` for credentials. No account or hosted deployment is created by these commands.
+
+```sh
 cd frontend
 npm ci
 npm run build
 npm start -- --port 3000
 ```
 
-1. Keep that terminal running on your computer. Connect the computer and phone to the same Wi-Fi.
-2. Find the computer's LAN IPv4 address (`ipconfig` on Windows; Wi-Fi network settings on macOS; `hostname -I` on Linux).
-3. Open **`http://<computer-LAN-IP>:3000`** in Android Chrome, for example `http://192.168.1.25:3000`. `localhost` on the phone refers to the phone, not the computer.
-4. If a firewall prompt appears, allow this app on your private network. If Wi-Fi client isolation prevents access, use another trusted network or the USB option below.
+Open the configured frontend origin and authenticate with the preview credentials. For Android USB testing, forward port 3000 with `adb reverse tcp:3000 tcp:3000` and browse `http://localhost:3000` on the phone; set that exact origin in `FHQ_FRONTEND_ORIGIN`. Next.js proxies to loopback Python. A Vercel deployment needs a separately hosted HTTPS API; Codex/laptop processes are not accessible to Vercel.
 
-This is a separate Node process and port. Do not change the Streamlit app's entry point, deployment settings or domain. No hosting account, API key, AI service or Python process is needed. Stop the preview with Ctrl+C.
+Unconfigured private access or backend settings fail closed. The shared preview gate is not a production multi-user identity system; do not deploy this as an anonymous personal-data service. See the deployment guide before hosted testing.
 
-Optional USB preview, if Android Platform Tools and USB debugging are already configured:
+## Storage and stage boundaries
 
-```sh
-adb devices
-adb reverse tcp:3000 tcp:3000
-```
+Profile and drafts remain only in React memory for the mounted page. Navigating Home/Me preserves the confirmed profile; reload or closing clears it. No plaintext profile is written to browser storage, and there is no server profile database or automatic cloud sync. Use Backup to download the existing Python-encrypted `.fhq` file and explicitly restore it in another session. Compatible older files preserve structured career and FHTB progress. Passphrases are cleared after each operation and cannot be recovered.
 
-Then open `http://localhost:3000` in Chrome on the connected phone. After testing, remove the forwarding with `adb reverse --remove tcp:3000`.
+Home contains no fictional person, monthly income or savings. Any displayed annual pensionable earnings are explicitly the user's attestation, not a computed or independently verified pay figure. Profile and birthday fields are not used to fabricate benefits or pensions.
 
-For live development, use `npm run dev -- --hostname 0.0.0.0 --port 3000` instead of the build/start commands. The small dev launcher also translates a managed preview runner's `--host` / `--strictPort` flags into Next.js arguments. Production preview uses native `next start`.
+**Still unconnected:** Money/pay/pension models and charts (B); real meal/mileage policy conversations (C); guided FHTB/career/learning (D). Ask remains a clearly labelled scripted demonstration. Non-connected tool panels accurately state which Python features exist and which are incomplete. Learning Credits eligibility, AFPS 05 reconstruction and EDP calculations are not implemented in the existing app.
 
-## What works
-
-- Home: compact original F mark, fictional personal greeting, forest Ask panel with real input, two-column Pay/Housing/Pension/Learning cards, sample financial overview and an explicitly labelled demo opportunity.
-- Ask: type **“Can I claim my lunch from yesterday?”**, answer the suggested questions or type a response, and review the retained conversation. Three contextual questions lead to a summary of stated circumstances, **never an eligibility outcome or invented JSP reference**. Home-buying and mileage scripts are also available.
-- Native `/` and `/ask` routes, links, browser Back/Forward, direct entry and reload. The five bottom destinations work; Money, Explore, Me and non-migrated tools open honest preview sheets on Home rather than additional migrated screens. Dialogs support Escape, focus containment and close controls.
-- The conversation and current draft are stored in this browser tab's `sessionStorage`. There is no account, shared database or cloud sync. “Start a new demo conversation” clears the demo. Home question submission intentionally starts a fresh scenario; tapping the Ask tab resumes the current one. Browser storage restrictions fall back to in-memory use.
-- The composer is in normal flex layout above navigation, rather than floating over messages. `100dvh`, the Visual Viewport API and safe-area insets follow the available space; keyboard detection covers both visual-only and whole-layout resizing, and hides bottom navigation while typing in the reduced viewport. Only the conversation scrolls. There is no global scroll lock that blocks the message list.
-
-Use fictional details only. Alex, the financial figures and the opportunity are demonstration content. No runtime requests go to an AI API, service-record system, Python backend or external font service. The Manrope variable font is bundled locally; icons use Lucide.
-
-## Visual system
-
-Maintainable CSS in `app/globals.css` defines shared tokens for ivory `#F7F7F2`, forest `#25483E`, ink `#263D36`, white surfaces, spacing, radii and elevation. This is intentionally a new application shell and conversational experience, rather than React copies of the Streamlit forms. No Tailwind build dependency is required.
-
-## Verification and screenshots
+## Testing
 
 ```sh
+# Repository root, in your API test environment:
+.venv-api/bin/python -m unittest discover -s backend/tests -v
+# Existing Streamlit regression environment:
+.venv/bin/python -m unittest discover -s tests -v
+# Frontend:
 npm run typecheck
 npm run build
-# Keep `npm start -- --port 3000` running in another terminal.
-APP_URL=http://127.0.0.1:3000 npm test
+# With both protected services running, set FHQ_TEST_USERNAME and
+# FHQ_TEST_PASSWORD to the chosen private preview credentials, then:
+APP_URL=http://localhost:3000 npm test
 ```
 
-Tests use `@playwright/test` and Chromium. If system Chromium is not installed, run `npx playwright install chromium`; the configuration uses Playwright's browser when `/usr/bin/chromium` is absent. `CHROMIUM_PATH` can override the executable. Windows PowerShell users can set `$env:APP_URL` and `$env:CHROMIUM_PATH` before `npm test`.
+Tests use only synthetic profiles and make real HTTP requests through Next.js to FastAPI. Playwright uses system Chromium if available, otherwise run `npx playwright install chromium`; `CHROMIUM_PATH` can override it. Do not run snapshot/trace tests with actual personal information.
 
-The 15 browser checks cover 360×800, 390×844 and 412×915: colours and grid, tap targets, all navigation/sheets, native browser history, direct Ask entry, tab-reload retention, malformed storage, complete lunch flow, reset and reduced-height composer clearance. They also exercise the overlay-keyboard layout branch with a simulated Visual Viewport change. These simulations do **not** certify a real Android keyboard, toolbar or hardware Back button.
-
-[Rendered mobile screenshots and visual review](docs/VISUAL_REVIEW.md) include Home, the financial/opportunity section, an active Ask conversation, a completed demonstration and a reduced-height view at every requested width. Screenshots are real Chromium renders, not generated mockups. Review the images and the physical phone; CSS assertions alone do not establish design approval.
-
-### Physical Android acceptance pass
-
-On your phone, check Home and the overview after one short scroll. Submit the lunch question, tap a suggested reply, type the next answer and open/close the keyboard. Confirm the composer stays visible and the conversation scrolls without overlapping controls. Try Chrome Back/Forward, reload, portrait/landscape and a larger system text size. Check Pay and the other preview sheets; press Android Back while a sheet is open, then revisit Ask. Keep Streamlit open separately to compare the interfaces. Physical-device acceptance remains pending.
-
-The managed environment's optional preview relay and interactive browser binding were unavailable during development; final validation used the built Next.js app on a local port with Playwright Chromium. Starting the local server/browser and running the Next.js TypeScript build subprocess required the environment's normal execution approvals. No Streamlit hosting change or cloud-account creation was used.
-
-## Source map
-
-- `app/`: App Router pages, metadata, viewport policy and design tokens.
-- `components/`: Home, Ask, shared application shell, demo-state provider and native preview dialog.
-- `lib/conversation.ts`: bounded, deterministic demonstration state machine; no real policy logic.
-- `tests/`: mobile browser acceptance tests.
-- `docs/screenshots/`: committed rendered review artifacts.
-
-This is a visual/interaction prototype, not a production migration. Authentication, real user profiles, verified policy-service integration, financial calculations and a full accessibility audit are outside this phase. Do not merge or replace the existing deployment before review.
+The earlier prototype screenshots in `docs/VISUAL_REVIEW.md` are historical design artifacts, not evidence of current functional integration. Updated Stage A captures are under `docs/screenshots/connected/`. Physical Android keyboard, toolbar and hardware Back acceptance remains pending. No Android colour-mode behaviour is changed.

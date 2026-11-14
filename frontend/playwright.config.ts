@@ -9,6 +9,7 @@ export default defineConfig({
   reporter: 'list',
   use: {
     baseURL: process.env.APP_URL || 'http://127.0.0.1:3000',
+    httpCredentials: { username: process.env.FHQ_TEST_USERNAME || 'foundation-test', password: process.env.FHQ_TEST_PASSWORD || 'test-only-preview-password-not-for-production' },
     browserName: 'chromium',
     launchOptions: { executablePath: process.env.CHROMIUM_PATH || (existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined), args: ['--no-sandbox'] },
     trace: 'retain-on-failure',

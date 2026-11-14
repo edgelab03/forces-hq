@@ -1,6 +1,7 @@
 __pycache__/
 *.py[cod]
 .venv/
+.venv-api/
 .streamlit/secrets.toml
 
 policy_data/*.sqlite3

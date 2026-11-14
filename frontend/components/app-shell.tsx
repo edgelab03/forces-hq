@@ -10,7 +10,7 @@ const destinations = [
   { label: 'Ask', href: '/ask', icon: MessageCircle, panel: null },
   { label: 'Money', href: '/?panel=money', icon: WalletCards, panel: 'money' },
   { label: 'Explore', href: '/?panel=explore', icon: Compass, panel: 'explore' },
-  { label: 'Me', href: '/?panel=profile', icon: UserRound, panel: 'profile' },
+  { label: 'Me', href: '/me', icon: UserRound, panel: 'profile' },
 ];
 
 export function Brand() {
@@ -66,7 +66,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     {children}
     <nav className="bottom-nav" aria-label="Main navigation">
       <div className="nav-inner">{destinations.map(({ label, href, icon: Icon, panel: target }) => {
-        const active = target ? pathname === '/' && panel === target : label === 'Ask' ? pathname === '/ask' : pathname === '/' && !panel;
+        const active = label === 'Me' ? pathname === '/me' : target ? pathname === '/' && panel === target : label === 'Ask' ? pathname === '/ask' : pathname === '/' && !panel;
         return <Link href={href} key={label} className={`nav-item ${active ? 'active' : ''}`} aria-current={active ? 'page' : undefined}>
           <span className="nav-icon"><Icon size={22} strokeWidth={1.7}/></span><span>{label}</span>
         </Link>;

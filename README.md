@@ -49,3 +49,11 @@ New exports can include V1 benefit progress and budget assumptions; older export
 The light mobile dashboard, five-button navigation, route mapping, validation and native Streamlit limits are documented in [docs/MODERN_FORCES_PHASE1.md](docs/MODERN_FORCES_PHASE1.md). This is a presentation/navigation update; existing calculation and policy evidence safeguards remain unchanged.
 
 Phase 1.1 continues that design with a pale-green Ask panel, mobile action corrections and conversational claim checks. Recovery details, scope and verification are in [docs/MODERN_FORCES_PHASE1_1.md](docs/MODERN_FORCES_PHASE1_1.md).
+
+## Forces HQ 2.0 — connected Stage A
+
+The separate [Next.js frontend](frontend/README.md) now connects to a protected, stateless [Python API](backend/api.py) for confirmed service profiles and existing encrypted `.fhq` export/restore. It removes fictional personal/financial defaults. The Streamlit application and existing calculations/policy safeguards remain unchanged.
+
+Read the [functionality inventory](docs/CONNECTED_FUNCTIONALITY_INVENTORY.md), [API contract](docs/CONNECTED_API_CONTRACT.md), [security/deployment guide](docs/CONNECTED_DEPLOYMENT.md) and [validation results](frontend/docs/CONNECTED_VALIDATION.md). Only Stage A is implemented; money, real entitlement conversations and guided benefits remain separate Stages B–D. Hosted backend/Vercel configuration and individual production authentication are not provided automatically.
+
+To configure the protected preview entirely from Android, follow the [phone deployment walkthrough](docs/STAGE_A_PHONE_PREVIEW.md). [Preparation evidence](docs/STAGE_A_DEPLOYMENT_PREPARATION.md) records what was verified locally and what still requires manual Render/Vercel configuration.

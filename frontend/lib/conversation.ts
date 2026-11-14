@@ -12,7 +12,7 @@ export const lunchPrompt = 'Can I claim my lunch from yesterday?';
 export const homePrompt = 'I’m thinking about buying a home.';
 export const openingPrompts = [lunchPrompt, homePrompt];
 export const initialConversation: Conversation = {
-  messages: [{ id: 'welcome', role: 'assistant', text: 'Hi Alex. What can I help you with today? We can work through it, one step at a time.' }],
+  messages: [{ id: 'welcome', role: 'assistant', text: 'Hi. What can I help you with today? This conversation is still a demonstration until the policy connection in Stage C.' }],
   flow: null,
   step: 0,
   answers: [],

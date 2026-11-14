@@ -1,0 +1,14 @@
+# The API needs a repository-root context, but never the whole working tree.
+# This file applies only when building backend/Dockerfile; Streamlit is unaffected.
+*
+!requirements.txt
+!profile_backup.py
+!benefit_journeys.py
+!app_context.py
+!backend
+backend/*
+!backend/requirements.txt
+!backend/__init__.py
+!backend/api.py
+!backend/models.py
+!backend/Dockerfile
