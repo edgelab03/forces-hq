@@ -16,13 +16,13 @@ class PrimaryNavigationTests(unittest.TestCase):
         self.assertFalse(self.app.exception)
 
     def test_destinations_and_every_section_are_synchronised(self):
-        groups = {'Home':[0], 'Explore':[3,4,5,6,7], 'Money':[2,8], 'Profile':[1]}
-        pages = self.field('selectbox', 'Go to section').options
+        groups = {'Home':[0], 'Policy':[4], 'Claims':[3], 'Money':[2,8], 'Career':[5,6,7], 'Profile':[1]}
+        pages = ['🏠 Dashboard','🎖️ My profile','💷 My money','🎯 Entitlements','📚 JSP finder','📅 My career','✍️ Achievement assistant','🏡 Life & future','🏦 Pension planner']
         for destination, indices in groups.items():
             self.go(destination)
-            self.assertEqual(self.field('selectbox', 'Go to section').value, pages[indices[0]])
+            self.assertEqual(self.app.session_state.nav_page, pages[indices[0]])
             for index in indices:
-                self.field('selectbox', 'Go to section').select(pages[index]).run()
+                if index in (2,5,6,7,8):self.app.button(key='group_nav_'+str(index)).click().run()
                 self.assertEqual(self.field('radio', 'Primary navigation').value, destination)
                 self.assertFalse(self.app.exception)
 
@@ -31,7 +31,7 @@ class PrimaryNavigationTests(unittest.TestCase):
         self.field('text_input', 'Trade / role (optional)').input('Fictional draft role').run()
         self.go('Money')
         self.field('number_input', 'Monthly take-home income (£)').set_value(3600).run()
-        self.go('Explore')
+        self.go('Claims')
         self.go('Home')
         self.go('Profile')
         self.assertEqual(self.field('text_input', 'Trade / role (optional)').value, 'Fictional draft role')
@@ -39,15 +39,17 @@ class PrimaryNavigationTests(unittest.TestCase):
         self.assertEqual(self.field('number_input', 'Monthly take-home income (£)').value, 3600)
 
     def test_policy_entry_and_group_shortcut(self):
-        self.field('button', '⌕  Ask a military question').click().run()
-        self.assertEqual(self.field('radio', 'Primary navigation').value, 'Explore')
-        self.field('button', '✍️ Achievement assistant').click().run()
-        self.assertEqual(self.field('selectbox', 'Go to section').value, '✍️ Achievement assistant')
+        self.field('text_input', 'Ask Forces HQ').input('meal on duty')
+        self.field('button', 'Ask Forces HQ').click().run()
+        self.assertEqual(self.field('radio', 'Primary navigation').value, 'Policy')
+        self.go('Career')
+        self.field('button', 'Achievements').click().run()
+        self.assertEqual(self.app.session_state.nav_page, '✍️ Achievement assistant')
         self.assertFalse(self.app.exception)
 
     def test_all_dashboard_cards_have_useful_destinations(self):
-        for label, target in [('Policy\nFind JSP answers', '📚 JSP finder'), ('Claims\nJPA guidance', '🎯 Entitlements'), ('Money\nPay and pensions', '🏦 Pension planner'), ('Career\nPersonal development', '📅 My career')]:
+        for label, target in [('Policy\nFind JSP answers', '📚 JSP finder'), ('Claims\nCheck allowances', '🎯 Entitlements'), ('Money\nPay and pensions', '🏦 Pension planner'), ('Career\nPersonal development', '📅 My career')]:
             self.go('Home')
             self.field('button', label).click().run()
-            self.assertEqual(self.field('selectbox', 'Go to section').value, target)
+            self.assertEqual(self.app.session_state.nav_page, target)
             self.assertFalse(self.app.exception)

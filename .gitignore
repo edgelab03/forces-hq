@@ -2,3 +2,9 @@ __pycache__/
 *.py[cod]
 .venv/
 .streamlit/secrets.toml
+
+policy_data/*.sqlite3
+policy_data/*.building
+policy_data/*.pdf
+policy_data/manifest.json
+policy_data/last_refresh.json
