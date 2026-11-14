@@ -23,8 +23,8 @@ input,textarea,[data-testid="stNumberInput"]{font-size:16px!important;scroll-mar
 .st-key-profile_button button p,.st-key-voice_unavailable button p,.st-key-home_ask button p{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .st-key-route_back button{min-height:44px;font-size:14px;background:transparent;border:none;padding:4px 8px}
 .st-key-welcome{margin-bottom:12px}.st-key-welcome h3{font-size:26px!important;font-weight:700}.st-key-welcome p{margin-bottom:0}
-.st-key-ask_panel{background:var(--forest);border-radius:20px;padding:20px;margin-bottom:12px}
-.st-key-ask_panel h3,.st-key-ask_panel [data-testid="stCaptionContainer"] p{color:white}
+.st-key-ask_panel{background:var(--mint);border:1px solid #C8DFD0;border-radius:20px;padding:20px;margin-bottom:12px}
+.st-key-ask_panel h3,.st-key-ask_panel [data-testid="stCaptionContainer"] p{color:var(--forest)}
 .st-key-ask_panel h3{font-size:21px!important}.st-key-ask_panel [data-testid="stCaptionContainer"]{margin-top:-8px}
 .st-key-ask_entry{flex-direction:row!important;flex-wrap:nowrap!important;align-items:center;gap:6px;background:white;border-radius:14px;padding:4px}
 .st-key-ask_entry [data-testid="stTextInput"]{min-width:0;flex:1}.st-key-ask_entry [data-testid="stTextInput"] input{background:white;border:none}
@@ -32,7 +32,7 @@ input,textarea,[data-testid="stNumberInput"]{font-size:16px!important;scroll-mar
 .st-key-voice_unavailable,.st-key-home_ask{flex:0 0 44px!important;width:44px!important}
 .st-key-voice_unavailable button,.st-key-home_ask button{width:44px;min-height:44px;padding:8px;border:none;background:white}
 .st-key-voice_unavailable button:disabled{color:var(--secondary);opacity:.65}
-.st-key-home_ask button{background:var(--mint)}
+.st-key-home_ask button{background:var(--forest);color:white}
 .st-key-dashboard{margin-bottom:12px}.st-key-dashboard [data-testid="stHorizontalBlock"]{flex-direction:row!important;gap:12px}
 .st-key-dashboard [data-testid="stHorizontalBlock"]>[data-testid="stColumn"]{width:calc(50% - 6px)!important;flex:1 1 0!important;min-width:0!important}
 .st-key-dashboard button{width:100%;min-height:100px;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:10px;padding:18px;text-align:left;background:white;border:1px solid #E4E9E4;box-shadow:0 2px 8px #25483E06}
@@ -56,3 +56,12 @@ input,textarea,[data-testid="stNumberInput"]{font-size:16px!important;scroll-mar
 .st-key-app_navigation [data-testid="stMarkdownContainer"]{overflow:visible;text-overflow:clip;max-width:none}
 [data-testid="stBottomBlockContainer"]{max-width:1000px;margin:auto;padding:8px 20px max(12px,env(safe-area-inset-bottom))}
 [data-testid="stMain"]{scroll-padding-bottom:110px}
+/* Long action labels and source titles must grow instead of clipping on phones. */
+.stApp button p,[data-testid="stLinkButton"] a p{white-space:normal;overflow-wrap:anywhere}
+.st-key-app_navigation button p,.st-key-dashboard button p{overflow-wrap:normal}
+.st-key-journey_controls{flex-direction:row!important;flex-wrap:wrap!important;gap:8px}
+.st-key-journey_controls>div{flex:1 1 120px!important;min-width:0!important}
+.st-key-journey_controls button{width:100%}
+[data-testid="stChatMessage"]{background:white;border:1px solid #DCE5DF;border-radius:18px;min-width:0}
+[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"]{overflow-wrap:anywhere}
+@media(prefers-reduced-motion:reduce){.stApp *{scroll-behavior:auto!important}}

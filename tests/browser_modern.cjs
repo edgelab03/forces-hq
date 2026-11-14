@@ -9,6 +9,8 @@ fs.mkdirSync('/tmp/modern-forces',{recursive:true});
 for(const width of [360,390,412,768,1280]){
  const context=await browser.newContext({viewport:{width,height:900},isMobile:width<600,hasTouch:width<600});const p=await context.newPage();await p.goto(url);await settled(p);
  assert.equal(await p.locator('[data-testid=stApp]').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(247, 247, 242)');
+ assert.equal(await p.locator('.st-key-ask_panel').evaluate(e=>getComputedStyle(e).backgroundColor),'rgb(220, 239, 227)');
+ assert.equal(await p.locator('.st-key-home_ask button').evaluate(e=>getComputedStyle(e).color),'rgb(255, 255, 255)');
  assert.equal(await p.getByRole('radiogroup',{name:'Primary navigation'}).count(),0);
  await noOverflow(p);
  const controls=p.locator('.st-key-app_navigation').getByRole('button');assert.equal(await controls.count(),5);
