@@ -33,6 +33,8 @@ test('Home renders the design, useful cards and five native navigation links', a
   expect(boxes[0]!.y).toBe(boxes[1]!.y);
   expect(boxes[2]!.y).toBe(boxes[3]!.y);
   expect(boxes[1]!.x).toBeGreaterThan(boxes[0]!.x);
+  const bottom = await page.locator('.bottom-nav').boundingBox();
+  expect(boxes[3]!.y + boxes[3]!.height).toBeLessThanOrEqual(bottom!.y);
   const links = page.getByRole('navigation').getByRole('link');
   await expect(links).toHaveCount(5);
   for (const link of await links.all()) {
@@ -81,15 +83,17 @@ test('Chat composer stays clear of navigation in a reduced keyboard viewport', a
   await page.goto('/ask'); await ready(page);
   const width = page.viewportSize()!.width;
   const entry = page.getByRole('textbox', { name: 'Your message' });
-  await page.setViewportSize({ width, height: 440 });
   await entry.focus();
+  await page.setViewportSize({ width, height: 440 });
   await entry.fill('Can I claim my lunch from yesterday?');
+  await expect(page.getByRole('navigation')).toBeHidden();
   const input = await entry.boundingBox();
-  const nav = await page.locator('.bottom-nav').boundingBox();
   expect(input!.y).toBeGreaterThan(0);
-  expect(input!.y + input!.height).toBeLessThan(nav!.y);
+  expect(input!.y + input!.height).toBeLessThan(440);
   await page.getByRole('button', { name: 'Send message' }).click();
   await expect(page.getByRole('button', { name: 'Yes, I was away', exact: true })).toBeVisible();
+  await expect(entry).toBeFocused();
+  await expect(page.getByRole('navigation')).toBeHidden();
   await screenshot(page, 'ask-keyboard-height');
   // Exercise the VisualViewport branch independently of physical keyboard support.
   await page.evaluate(() => {

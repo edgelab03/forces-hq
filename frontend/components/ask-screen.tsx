@@ -9,6 +9,7 @@ import { suggestedAnswers } from '@/lib/conversation';
 export function AskScreen() {
   const { conversation, draft, setDraft, send, reset, ready } = usePrototype();
   const scroller = useRef<HTMLElement>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
   const choices = suggestedAnswers(conversation);
   const complete = conversation.flow && choices.length === 0;
 
@@ -43,9 +44,9 @@ export function AskScreen() {
         {complete && <section className="conversation-summary" aria-label="Your demo context"><span className="demo-label">YOUR DEMO CONTEXT</span><h2>Ready for a real policy check</h2><ul>{conversation.answers.map((answer, i) => <li key={i}><span>{i + 1}</span>{answer}</li>)}</ul><p>This summary records your answers. It is not an approval, claim submission or policy assessment.</p><button className="text-link" onClick={reset}>Try another demonstration <RotateCcw size={14}/></button></section>}
       </div>
     </main>
-    <div className="composer-area"><form className="composer" onSubmit={event => { event.preventDefault(); send(draft); }}>
+    <div className="composer-area"><form className="composer" onSubmit={event => { event.preventDefault(); send(draft); input.current?.focus({ preventScroll: true }); }}>
       <label className="visually-hidden" htmlFor="chat-message">Your message</label>
-      <textarea id="chat-message" placeholder="Tell me a little more…" rows={1} maxLength={1000} value={draft} disabled={!ready} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(draft); } }}/>
+      <textarea ref={input} id="chat-message" placeholder="Tell me a little more…" rows={1} maxLength={1000} value={draft} disabled={!ready} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); send(draft); } }}/>
       <button className="send-button" type="submit" aria-label="Send message" disabled={!ready || !draft.trim()}><ArrowUp size={21}/></button>
     </form><p className="composer-note">Scripted demo · No AI API · Use fictional details only</p></div>
   </>;

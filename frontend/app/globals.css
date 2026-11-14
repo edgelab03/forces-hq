@@ -159,6 +159,14 @@ html[data-keyboard="true"] .composer-area { padding-bottom: max(8px, env(safe-ar
 .not-found { padding: 80px 24px; flex: 1; }
 .not-found h1 { font-size: 30px; margin: 14px 0; }
 .not-found p { margin: 12px 0 24px; line-height: 1.7; }
+@media (max-width: 699px) {
+  .greeting { margin-bottom: 20px; }
+  .home-primary { gap: 20px; }
+  .ask-card { padding: 18px; }
+  .ask-card h2 { margin-top: 8px; }
+  .home-ask-form { margin-top: 15px; }
+  .quick-card { min-height: 108px; }
+}
 @media (min-width: 700px) {
   .home-header { padding: 30px 40px 26px; }
   .home-content { padding: 0 40px 30px; }

@@ -29,14 +29,22 @@ export function AppShell({ children }: { children: ReactNode }) {
     const viewport = window.visualViewport;
     if (!viewport) return;
     let frame = 0;
+    let restingHeight = viewport.height;
+    let restingWidth = viewport.width;
     function update() {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         if (!viewport) return;
         const editing = document.activeElement?.matches('textarea, input');
+        if (Math.abs(viewport.width - restingWidth) > 80) {
+          restingHeight = viewport.height;
+          restingWidth = viewport.width;
+        }
+        const keyboard = Boolean(editing && Math.max(window.innerHeight - viewport.height, restingHeight - viewport.height) > 120);
+        if (!editing) restingHeight = viewport.height;
         document.documentElement.style.setProperty('--app-height', `${viewport.height}px`);
         document.documentElement.style.setProperty('--viewport-top', `${viewport.offsetTop}px`);
-        document.documentElement.dataset.keyboard = String(Boolean(editing && window.innerHeight - viewport.height > 120));
+        document.documentElement.dataset.keyboard = String(keyboard);
       });
     }
     update();
