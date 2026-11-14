@@ -43,3 +43,7 @@ Read [REPAIR_AUDIT.md](REPAIR_AUDIT.md) for root causes, tested scope, source/ne
 The V1 product scope, source/release gates and unexecuted frontend migration proposal are in [docs/V1_PRODUCT_PLAN.md](docs/V1_PRODUCT_PLAN.md). The branch adds source-gated decision rules and a connected FHTB preparation/checklist flow; it does not claim verified scheme eligibility while production rules are unapproved. Benefit progress and budget assumptions can be included in the explicit encrypted profile backup. Validate rules with `python scripts/validate_rules.py`; the current missing-rule check intentionally fails. Learning Credits remains deferred.
 
 New exports can include V1 benefit progress and budget assumptions; older exports still restore with an empty benefit journey. Restore in the V1 app to recover that progress—older deployed code does not understand the new optional benefit payload.
+
+## Modern Forces Phase 1
+
+The light mobile dashboard, five-button navigation, route mapping, validation and native Streamlit limits are documented in [docs/MODERN_FORCES_PHASE1.md](docs/MODERN_FORCES_PHASE1.md). This is a presentation/navigation update; existing calculation and policy evidence safeguards remain unchanged.

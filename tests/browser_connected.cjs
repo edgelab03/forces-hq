@@ -3,13 +3,21 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const {chromium}=require('playwright');
 const url=process.env.APP_URL||'http://127.0.0.1:8502';
-async function settled(p){
- await p.getByText('Forces HQ •',{exact:false}).waitFor();
- await p.waitForFunction(()=>document.querySelectorAll('[data-testid="stSkeleton"]').length===0);
- assert.equal(await p.locator('[data-testid="stException"]').count(),0);
+const {go,settled}=require('./browser_helpers.cjs');
+async function choose(p,label,value){
+ let failure;
+ for(let attempt=0;attempt<3;attempt++){
+  await settled(p);const combo=p.getByRole('combobox',{name:label,exact:true}).last();
+  try{
+   await combo.click();await p.getByRole('listbox').waitFor({timeout:3000});
+   if(await p.getByRole('option',{name:value,exact:true}).count()===0)await combo.press('End');
+   await p.getByRole('option',{name:value,exact:true}).click();
+   await p.waitForFunction(({label,value})=>Array.from(document.querySelectorAll('input')).some(e=>e.getAttribute('aria-label')===label&&e.value===value),{label,value});
+   await settled(p);return;
+  }catch(error){failure=error;await settled(p);if(await p.getByRole('listbox').isVisible())await combo.press('Escape');}
+ }
+ throw failure;
 }
-async function go(p,name){await p.getByRole('radiogroup',{name:'Primary navigation'}).getByText(name,{exact:true}).click();const headings={Money:'Your money, at a glance',Policy:'🔎 Ask Forces HQ',Profile:'🎖️ My military profile',Career:'📅 Career & reporting milestones',Claims:'🎯 Entitlements explorer'};await(name==='Home'?p.getByText('Welcome back',{exact:true}):p.getByRole('heading',{name:headings[name],exact:true})).waitFor();await settled(p);}
-async function choose(p,label,value){await p.getByRole('combobox',{name:label,exact:true}).click();await p.getByRole('option',{name:value,exact:true}).click();await settled(p);}
 (async()=>{
  const b=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
  try{
@@ -18,7 +26,7 @@ async function choose(p,label,value){await p.getByRole('combobox',{name:label,ex
   const p=await context.newPage();await p.goto(url);await settled(p);
   assert.equal(await p.getByRole('combobox',{name:'Go to section',exact:true}).count(),0);
   const input=p.getByRole('textbox',{name:'Ask Forces HQ',exact:true});
-  await input.fill('Can I claim my lunch back today?');await p.getByRole('button',{name:'Ask Forces HQ',exact:true}).click();await settled(p);
+  await input.fill('Can I claim my lunch back today?');await p.getByRole('textbox',{name:'Ask Forces HQ',exact:true}).press('Enter');await settled(p);
   await p.getByRole('heading',{name:'Meals and subsistence',exact:true}).waitFor();
   assert.equal(await p.getByText('Duty mileage and travel',{exact:true}).count(),0);
   await p.getByText('Unable to verify entitlement against current policy',{exact:true}).waitFor();

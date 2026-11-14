@@ -1,3 +1,4 @@
+from ui_helpers import select_primary
 """Policy rendering must tolerate retained caches from earlier app sessions."""
 from pathlib import Path
 import unittest
@@ -9,7 +10,7 @@ class PolicyStateRegressionTests(unittest.TestCase):
     def app_with_state(self, state):
         app=AppTest.from_file(str(APP),default_timeout=30).run()
         for key,value in state.items():app.session_state[key]=value
-        next(w for w in app.radio if w.label=='Primary navigation').set_value('Policy').run()
+        select_primary(app,'Ask')
         return app
 
     def test_retained_topic_must_be_a_mapping_before_membership_and_union(self):
@@ -49,7 +50,7 @@ class PolicyStateRegressionTests(unittest.TestCase):
         original_profile=dict(app.session_state.profile)
         next(w for w in app.text_input if w.label=='What do you need help with?').input('Lunch yesterday?').run()
         for destination in ['Home','Claims','Money','Career','Profile','Policy']:
-            next(w for w in app.radio if w.label=='Primary navigation').set_value(destination).run()
+            select_primary(app,destination)
             self.assertFalse(app.exception,str(app.exception))
         self.assertEqual(app.session_state.decision_facts['mileage'],valid)
         self.assertEqual(app.session_state.profile,original_profile)

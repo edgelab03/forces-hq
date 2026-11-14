@@ -12,53 +12,13 @@ from benefit_journeys import empty_progress
 from benefit_ui import render_fhtb, render_benefit_card
 from money_overview import render_money_overview
 from build_info import build_info
+from modern_ui import apply_styles, brand, render_home
+from ui_navigation import transition, back
 from session_inputs import SessionInputs, retain_inputs, retain_hidden_inputs, rerun_with_retained_inputs
 
-st.set_page_config(page_title='Forces HQ | Career, Money & Policy', page_icon='🛡️', layout='wide', initial_sidebar_state='collapsed')
+st.set_page_config(page_title='Forces HQ | Career, Money & Policy', page_icon=':material/landscape:', layout='wide', initial_sidebar_state='collapsed')
 retain_inputs()
-st.markdown('''<style>
-.stApp{background:linear-gradient(150deg,#0b1425,#101d32);color:#e8eff9}
-[data-testid="stSidebar"]{background:#0a182c}
-.hero{padding:22px;border-radius:17px;background:linear-gradient(110deg,#15385c,#15263f);border:1px solid #365374;margin-bottom:15px}
-.hero h1{margin:0;font-size:2rem;color:white}.hero p{margin:5px 0;color:#b9d3ee}
-.tile{padding:15px;border:1px solid #334b69;background:#14283f;border-radius:12px;min-height:110px}
-.tile small{color:#afd0eb}.tile strong{display:block;color:white;font-size:1.55rem;margin-top:7px}
-a{color:#82d7ff!important}.guide{padding:16px;border-radius:14px;background:#122c42;border:1px solid #356179;margin:12px 0}.guide h4{color:#fff;margin:0 0 8px 0}.guide p{color:#d4e5f3;margin:0}
-div.stButton > button {min-height:44px;border-radius:14px;font-size:.95rem;font-weight:650;border:1px solid #45688b;background:#16324e;color:#f7fbff;} div.stButton > button:hover {background:#235075;border-color:#90c9f1;} @media(max-width:600px){.hero{padding:15px}.hero h1{font-size:1.6rem}.tile strong{font-size:1.17rem}}
-.stMainBlockContainer{max-width:1200px;padding-top:4rem;padding-bottom:3rem}
-[data-testid="stMain"] input,[data-testid="stMain"] textarea,[data-testid="stMain"] button,[data-testid="stMain"] label{scroll-margin-top:1rem}
-.st-key-app_navigation [role="radiogroup"]{display:flex;flex-direction:row!important;flex-wrap:nowrap;gap:4px}
-.st-key-app_navigation [role="radiogroup"] label{flex:1;box-sizing:border-box;min-width:44px;min-height:44px;justify-content:center;margin:0!important;padding:2px}
-.st-key-app_navigation [role="radiogroup"] label p{font-size:12px!important}
-.st-key-app_navigation [role="radiogroup"] label>div>div:first-child{display:none}
-.st-key-app_navigation [role="radiogroup"] label>div{gap:0;justify-content:center}
-.st-key-app_navigation [role="radiogroup"] label p{white-space:nowrap}
-.st-key-app_navigation [role="radiogroup"] label:focus-within{outline:2px solid #70c8f5;outline-offset:2px}
-.st-key-app_navigation [role="radiogroup"] label:has(input:checked){background:#203c59;border-radius:8px}
-.st-key-dashboard [data-testid="stHorizontalBlock"]{flex-direction:row!important;gap:10px}
-.st-key-dashboard [data-testid="stHorizontalBlock"]>[data-testid="stColumn"]{width:calc(50% - 5px)!important;flex:1 1 0!important;min-width:0!important}
-.st-key-dashboard button{min-height:76px!important;font-size:14px!important;background:#14283f;border:1px solid #304963}
-.st-key-dashboard button p{white-space:pre-line;font-size:14px}
-.st-key-brand_header{flex-direction:row!important;flex-wrap:nowrap!important;justify-content:space-between}
-.st-key-secondary_navigation{flex-direction:row!important;flex-wrap:wrap!important;gap:6px}
-.st-key-secondary_navigation button{min-height:44px!important;font-size:13px!important}
-.st-key-brand_header button{min-height:44px!important}
-.st-key-brand_header h3{padding:0;font-size:1.25rem}
-.st-key-welcome p{margin:0}
-.st-key-policy_entry button{min-height:48px!important}
-[data-testid="stMetricValue"]{white-space:normal;overflow-wrap:anywhere;font-size:1.6rem}
-[data-testid="stTextInput"] input,[data-testid="stNumberInput"] input,[data-testid="stDateInput"] input,textarea{font-size:16px!important}
-button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #70c8f5!important;outline-offset:3px}
-@media(max-width:640px){
- .stMainBlockContainer{padding:4rem .85rem 1rem}
- [data-testid="stHorizontalBlock"]{flex-direction:column;gap:.65rem}
- [data-testid="stHorizontalBlock"]>[data-testid="stColumn"]{width:100%!important;flex:1 1 auto!important;min-width:0!important}
- div.stButton>button,[data-testid="stDownloadButton"] button,[data-testid="stLinkButton"] a{min-height:48px;width:100%}
- .tile{min-height:0;padding:12px}
- .hero h1{font-size:1.5rem}
- [data-testid="stMetricValue"]{font-size:1.35rem}
-}
-</style>''',unsafe_allow_html=True)
+apply_styles()
 
 POLICIES=[
  {'id':'JSP 752','title':'Expenses and allowances','tags':'travel relocation disturbance home to duty subsistence separation assignment claims mileage', 'url':'https://www.gov.uk/government/publications/jsp-752-tri-service-regulations-for-expenses-and-allowances','review':'October 2026','note':'Authoritative allowances policy. Check the current version, precise paragraph and any exceptions before claiming.'},
@@ -104,36 +64,31 @@ if st.session_state.get('pending_profile_restore'):
  apply_restored_profile(st.session_state,st.session_state.pop('pending_profile_restore'),PAGES[1])
 if 'nav_page' not in st.session_state:st.session_state.nav_page=PAGES[0]
 if st.session_state.nav_page not in PAGES:st.session_state.nav_page=PAGES[0]
-DESTINATIONS={'Home':[0], 'Policy':[4], 'Claims':[3], 'Money':[2,8], 'Career':[5,6,7], 'Profile':[1]}
+DESTINATIONS={'Home':[0], 'Ask':[4], 'Money':[2,8], 'Explore':[3,5,6,7], 'Me':[1]}
 def destination_for(page):
  return next(name for name,indices in DESTINATIONS.items() if PAGES.index(page) in indices)
 st.session_state.nav_primary=destination_for(st.session_state.nav_page)
 st.session_state.setdefault('nav_sidebar',st.session_state.nav_page)
 st.session_state.setdefault('nav_top',st.session_state.nav_page)
 def navigate(destination):
- st.session_state.active_journey=None
- st.session_state.money_overview=False
- st.session_state.nav_page=destination
- st.session_state.nav_primary=destination_for(destination)
- st.session_state.nav_sidebar=destination
- st.session_state.nav_top=destination
+ transition(st.session_state,destination,destination_for(destination))
 
 def open_fhtb():
- navigate(PAGES[3])
- st.session_state.active_journey='fhtb'
+ transition(st.session_state,PAGES[3],'Explore',journey='fhtb')
  st.session_state.benefits['fhtb']['interested']=True
 
 def open_money():
- navigate(PAGES[2])
- st.session_state.money_overview=True
+ transition(st.session_state,PAGES[2],'Money',money=True)
 
-def change_section(source):
- navigate(st.session_state[source])
+def open_learning():
+ transition(st.session_state,PAGES[5],'Explore',learning=True)
 
-def change_destination():
- destination=st.session_state.nav_primary
- navigate(PAGES[DESTINATIONS[destination][0]])
- if destination=='Money':st.session_state.money_overview=True
+def select_tab(destination):
+ if destination=='Money':open_money()
+ else:navigate(PAGES[DESTINATIONS[destination][0]])
+
+def go_back():
+ back(st.session_state,destination_for)
 
 def ask_question(question):
  question_handoff(st.session_state,question,PAGES[4])
@@ -146,7 +101,7 @@ def ask_opportunity(question):
  ask_question(question)
 
 with st.sidebar:
- st.title('🛡️ FORCES HQ')
+ st.title('Forces HQ')
  st.caption('Independent educational app · Not an official MOD service')
  st.warning('Use fictional/non-identifying data only. Do not enter service numbers, operational information, official assessments or identifiable family details.')
  with st.expander('All tools'):
@@ -157,21 +112,24 @@ with st.sidebar:
   st.json(info)
   st.caption('Local process identity only. A hosted app must be checked separately.')
   st.caption('Policy index: '+PolicyIndex().status()['state'])
-# Native bottom placement reserves page space and stays outside the scroll area.
+# Native bottom container reserves content space; no custom fixed positioning.
 with st.bottom:
- with st.container(key='app_navigation'):
-  st.radio('Primary navigation',list(DESTINATIONS),key='nav_primary',horizontal=True,on_change=change_destination,label_visibility='collapsed',width='stretch')
+ with st.container(key='app_navigation',horizontal=True,wrap=False):
+  for label,icon in [('Home','home'),('Ask','chat_bubble_outline'),('Money','account_balance_wallet'),('Explore','explore'),('Me','person_outline')]:
+   st.button(label,icon=':material/'+icon+':',key='nav_'+label,on_click=select_tab,args=(label,),type='primary' if destination_for(st.session_state.nav_page)==label else 'tertiary',use_container_width=True,help='Current section' if destination_for(st.session_state.nav_page)==label else 'Open '+label)
 page=st.session_state.nav_page
 ui=SessionInputs(page)
 with st.container(key='brand_header',horizontal=True,vertical_alignment='center'):
- st.markdown('### 🛡️ Forces HQ')
- st.button('👤',help='Open profile',key='header_profile',on_click=navigate,args=(PAGES[1],))
+ brand()
+ st.button('Open profile',icon=':material/person_outline:',key='profile_button',on_click=navigate,args=(PAGES[1],))
+if st.session_state.get('route_history') and page!=PAGES[0]:
+ st.button('Back',icon=':material/arrow_back:',key='route_back',on_click=go_back)
 current_destination=destination_for(page)
-SECONDARY={'Money':[(2,'Budget & savings'),(8,'Pay & pensions')], 'Career':[(5,'Milestones'),(6,'Achievements'),(7,'Life & future')]}
+SECONDARY={'Money':[(2,'Budget & savings'),(8,'Pay & pensions')], 'Explore':[(3,'Benefits'),(5,'Career'),(6,'Achievements'),(7,'Life & future')]}
 if current_destination in SECONDARY:
  with st.container(key='secondary_navigation',horizontal=True):
   for index,label in SECONDARY[current_destination]:
-   st.button(label,key='group_nav_'+str(index),on_click=navigate,args=(PAGES[index],),type='primary' if page==PAGES[index] else 'secondary')
+   st.button(label,key='group_nav_'+str(index),on_click=navigate,args=(PAGES[index],),type='primary' if page==PAGES[index] and not st.session_state.get('money_overview') else 'secondary')
 p=st.session_state.profile
 
 def tile(label,value):st.markdown(f'<div class="tile"><small>{escape(str(label))}</small><strong>{escape(str(value))}</strong></div>',unsafe_allow_html=True)
@@ -187,23 +145,7 @@ if st.session_state.get('active_journey')=='fhtb':
  render_fhtb(p,st.session_state.get('profile_applied',False),ask_question,lambda:navigate(PAGES[3]),lambda:navigate(PAGES[1]))
 
 elif page==PAGES[0]:
- with st.container(key='welcome',border=True):
-  st.markdown('**Welcome back**')
-  summary=' · '.join(str(p.get(field)) for field in ('rank','service') if p.get(field) and p.get(field)!='Not specified')
-  st.caption(summary or 'Your demo profile')
-  if not st.session_state.get('profile_applied'):st.caption('Example profile · Edit in Profile')
- with st.form('home_ask',clear_on_submit=False,border=False):
-  st.text_input('Ask Forces HQ',key='home_question',placeholder='Can I claim my lunch back today?',max_chars=1500)
-  st.form_submit_button('Ask Forces HQ',on_click=ask_home,use_container_width=True,type='primary')
- with st.container(key='dashboard'):
-  cards=[('Claims','Check allowances',lambda:navigate(PAGES[3])),('Pay','Your money overview',open_money),('Housing','Plan a home purchase',open_fhtb),('Pensions','Explore your scheme',open_money),('Career','Your next step',lambda:navigate(PAGES[5]))]
-  for start in (0,2,4):
-   for col,(title,detail,action) in zip(st.columns(2),cards[start:start+2]):
-    with col:st.button(title+'\n'+detail,key='dashboard_'+title,on_click=action,use_container_width=True)
- render_benefit_card(p,st.session_state.get('profile_applied',False),st.session_state.benefits['fhtb'],open_fhtb)
- if st.session_state.events:
-  next_event=linked_milestones(p,st.session_state.events)[0]
-  st.caption('Career: '+next_event['label']+' · '+next_event['date'])
+ render_home(p,st.session_state.get('profile_applied',False),st.session_state.benefits,st.session_state.events,ask=ask_home,open_money=open_money,open_housing=open_fhtb,open_pension=lambda:navigate(PAGES[8]),open_learning=open_learning,open_career=lambda:navigate(PAGES[5]))
 
 elif page==PAGES[1]:
  st.subheader('🎖️ My military profile')
@@ -384,7 +326,10 @@ elif page==PAGES[4]:
   for source_id,(title,url) in CATALOGUE.items():st.link_button(source_id+' — '+title,url)
 
 elif page==PAGES[5]:
- st.subheader('📅 Career & reporting milestones')
+ if st.session_state.get('learning_focus'):
+  st.subheader('Learning & development')
+  st.caption('Plan courses and qualifications with your existing career milestones. Learning Credits eligibility is not implemented.')
+ else:st.subheader('📅 Career & reporting milestones')
  st.caption(f'Profile appraisal type: {p["report"]}; recorded rank: {p["rank"]}.')
  if p.get('rank_history'):
   st.markdown('#### Linked promotion timeline')
