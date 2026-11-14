@@ -32,13 +32,51 @@ def _cached_facts(parent,key,path):
  return facts
 
 
+def _reset_condition_inputs(ui,condition_types):
+ for key,kind in condition_types.items():
+  if key.startswith(ui.key('condition:')):st.session_state[key]='Not sure' if kind=='choice' else None
+
+
+def _render_conversation(question,result,stored,ui):
+ """Rebuild the current check from its facts; no separate transcript to go stale."""
+ with st.chat_message('user',avatar=':material/person:'):
+  st.text(question)
+  details=[]
+  for key,record in stored.items():
+   if key.endswith('.incident_date'):details.append('Date: '+str(record['value']))
+   elif key=='meals.type':details.append('Meal: '+str(record['value']))
+  if details:st.caption(' · '.join(details))
+ conditions={c['fact']:c for c in (result.get('rule') or {}).get('conditions',[])}
+ for item in result['trace']:
+  key=item['fact']
+  if key not in conditions or key not in stored:continue
+  with st.chat_message('assistant',avatar=':material/support_agent:'):st.write(conditions[key]['question'])
+  with st.chat_message('user',avatar=':material/person:'):st.text(str(stored[key]['value']))
+ with st.chat_message('assistant',avatar=':material/support_agent:'):
+  with st.container(key='assessment_result'):
+   st.markdown('**'+result['status']+'**')
+   st.write(result['reason'])
+   st.caption('Preliminary assessment from stated circumstances; not an authoritative determination.')
+  if result['missing']:
+   st.caption('One detail to continue')
+   render_condition(result['missing'][0],ui,stored)
+
+
 def render_question(profile,navigate,pages,open_benefit=None):
  ui=SessionInputs(pages[4]);index=PolicyIndex()
  if ui.key('guided_search') not in st.session_state:st.session_state[ui.key('guided_search')]=st.session_state.get('active_question') or ''
  question=ui.text_input('What do you need help with?',placeholder='Can I claim my lunch back yesterday?',key='guided_search',max_chars=1500) or ''
  st.session_state.active_question=question
  if not question.strip():
-  st.caption('Ask about a meal, mileage, buying a home, pay or career support.')
+  with st.chat_message('assistant',avatar=':material/support_agent:'):
+   st.write('What would you like to check? Tell me what happened, and I’ll help you find the next step.')
+   st.caption('Ask about a meal, mileage, buying a home, pay or career support.')
+  def use_prompt(value):
+   st.session_state[ui.key('guided_search')]=value
+   st.session_state.active_question=value
+  with st.container(key='claim_prompts'):
+   for key,label,prompt in [('meal','Check a meal claim','Can I claim a meal?'),('mileage','Check duty mileage','Can I claim duty mileage?'),('home','Plan a home purchase','How do I use Forces Help to Buy?')]:
+    st.button(label,key='claim_prompt_'+key,on_click=use_prompt,args=(prompt,),use_container_width=True)
   return
  st.session_state.active_question=question
  category=classify(question);topic=INTENTS.get(category,{})
@@ -54,19 +92,12 @@ def render_question(profile,navigate,pages,open_benefit=None):
   date_key=str(category)+'.incident_date'
   if date_key in derived and date_key in stored and derived[date_key]['value']!=stored[date_key]['value']:
    stored.clear()
-   for key,kind in condition_types.items():
-    if key.startswith(ui.key('condition:')):st.session_state[key]='Not sure' if kind=='choice' else None
+   _reset_condition_inputs(ui,condition_types)
   stored.update(derived)
   signatures[category]=question
  result=assess(category,verified_profile_facts(profile,applied)|stored,index)
  st.subheader(topic.get('label','Your question'))
- with st.container(border=True,key='assessment_result'):
-  st.markdown('**'+result['status']+'**')
-  st.write(result['reason'])
-  st.caption('Preliminary assessment from stated circumstances; not an authoritative determination.')
- if result['missing']:
-  st.caption('One detail to continue')
-  render_condition(result['missing'][0],ui,stored)
+ _render_conversation(question,result,stored,ui)
  if category in ('fhtb','rle') and open_benefit:
   st.button('Continue your home-buying guide',on_click=open_benefit,key='ask_fhtb',type='primary',use_container_width=True)
  else:
@@ -101,8 +132,7 @@ def render_question(profile,navigate,pages,open_benefit=None):
    def reset_answers():
     stored.clear()
     signatures.pop(category,None)
-    for key,kind in condition_types.items():
-     if key.startswith(ui.key('condition:')):st.session_state[key]='Not sure' if kind=='choice' else None
+    _reset_condition_inputs(ui,condition_types)
    st.button('Change my answers',key='reset_decision_answers',on_click=reset_answers)
   st.caption('Deterministic assessment and local document retrieval. No official service-record or JPA integration.')
  if result['claim_steps']:
@@ -110,3 +140,12 @@ def render_question(profile,navigate,pages,open_benefit=None):
    for step in result['claim_steps']:
     st.write(step['text'])
     if step.get('url'):st.link_button('Open application resource',step['url'])
+ if category in ('meals','mileage'):
+  def start_new_check():
+   stored.clear()
+   signatures.pop(category,None)
+   _reset_condition_inputs(ui,condition_types)
+   st.session_state[ui.key('guided_search')]=''
+   st.session_state.active_question=''
+   st.session_state.home_question=''
+  st.button('Start a new claim check',key='new_claim_check',on_click=start_new_check)

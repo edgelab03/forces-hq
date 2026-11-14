@@ -19,7 +19,7 @@ If no relevant indexed passage is available, the app says **Source unavailable**
 
 ## Connected workflow
 
-Home accepts a natural-language question. Policy shows clarification questions, indexed evidence, profile context and next actions. Claims links schemes directly into policy checks. Money contains budget/savings and pay/pension scenarios. Career contains milestones, achievements and life tools. Profile retains the existing validated entry workflow. Six compact bottom destinations remain available throughout; the old section dropdown is removed.
+Home accepts a natural-language question. Ask shows a conversational claim check, clarification questions, indexed evidence, profile context and next actions. Explore links schemes directly into policy checks and contains career, achievements and life tools. Money contains budget/savings and pay/pension scenarios. Me retains the existing validated profile workflow. Five compact bottom destinations remain available throughout; the old section dropdown is removed.
 
 The profile is shared within the current session. To retain structured settings and career dates between sessions, use **Save or restore an encrypted profile**. Download the `.fhq` file and keep its passphrase separately. Restore is explicit and validated. There is no account, automatic cloud sync or shared user database; losing the file or passphrase has no recovery service. Posting locations, free-text notes, questions and achievement drafts are excluded from this backup. Existing edited achievement downloads remain available independently. Never enter classified/operational information, service identifiers, official appraisal text or identifiable family details. Never commit `.streamlit/secrets.toml`.
 
@@ -47,3 +47,5 @@ New exports can include V1 benefit progress and budget assumptions; older export
 ## Modern Forces Phase 1
 
 The light mobile dashboard, five-button navigation, route mapping, validation and native Streamlit limits are documented in [docs/MODERN_FORCES_PHASE1.md](docs/MODERN_FORCES_PHASE1.md). This is a presentation/navigation update; existing calculation and policy evidence safeguards remain unchanged.
+
+Phase 1.1 continues that design with a pale-green Ask panel, mobile action corrections and conversational claim checks. Recovery details, scope and verification are in [docs/MODERN_FORCES_PHASE1_1.md](docs/MODERN_FORCES_PHASE1_1.md).

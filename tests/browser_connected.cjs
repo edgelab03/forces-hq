@@ -41,7 +41,7 @@ async function choose(p,label,value){
   await p.getByText('I have checked this pensionable earnings amount against official documentation',{exact:true}).click();
   await p.getByRole('button',{name:'Update linked demo profile',exact:true}).click();await settled(p);
   await go(p,'Policy');await p.getByText('Royal Navy · Sergeant',{exact:false}).waitFor();
-  await go(p,'Career');await p.getByRole('button',{name:'Add milestone',exact:true}).click();await settled(p);
+  await go(p,'Career');await p.getByRole('button',{name:'Add milestone',exact:true}).click();await p.getByText('Objectives agreed',{exact:false}).first().waitFor();await settled(p);
   await go(p,'Profile');
   await p.getByText('Save or restore an encrypted profile',{exact:true}).click();
   const password='fictional browser test passphrase';
