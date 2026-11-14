@@ -1,3 +1,4 @@
+from ui_helpers import select_primary
 from pathlib import Path
 import unittest
 from streamlit.testing.v1 import AppTest
@@ -10,11 +11,11 @@ class ConnectedJourneys(unittest.TestCase):
         self.app=AppTest.from_file(str(APP),default_timeout=30).run()
     def field(self,kind,label):return next(w for w in getattr(self.app,kind) if w.label==label)
     def go(self,destination):
-        self.field('radio','Primary navigation').set_value(destination).run()
+        select_primary(self.app,destination)
         self.assertFalse(self.app.exception)
     def test_home_question_handoff_and_clarifications_survive_navigation(self):
         self.field('text_input','Ask Forces HQ').input('Can I claim my lunch back today?')
-        self.field('button','Ask Forces HQ').click().run()
+        self.field('button','Open Ask').click().run()
         self.assertFalse(self.app.exception)
         self.assertEqual(self.field('text_input','What do you need help with?').value,'Can I claim my lunch back today?')
         self.assertTrue(any('Meals and subsistence' in m.value for m in self.app.subheader))

@@ -1,3 +1,4 @@
+from ui_helpers import select_primary
 """Four-destination navigation and session regression coverage (FHQ-01)."""
 import unittest
 from pathlib import Path
@@ -12,18 +13,18 @@ class PrimaryNavigationTests(unittest.TestCase):
         return next(w for w in getattr(self.app, kind) if w.label == label)
 
     def go(self, name):
-        self.field('radio', 'Primary navigation').set_value(name).run()
+        select_primary(self.app,name)
         self.assertFalse(self.app.exception)
 
     def test_destinations_and_every_section_are_synchronised(self):
-        groups = {'Home':[0], 'Policy':[4], 'Claims':[3], 'Money':[2,8], 'Career':[5,6,7], 'Profile':[1]}
+        groups = {'Home':[0], 'Ask':[4], 'Explore':[3,5,6,7], 'Money':[2,8], 'Me':[1]}
         pages = ['🏠 Dashboard','🎖️ My profile','💷 My money','🎯 Entitlements','📚 JSP finder','📅 My career','✍️ Achievement assistant','🏡 Life & future','🏦 Pension planner']
         for destination, indices in groups.items():
             self.go(destination)
             self.assertEqual(self.app.session_state.nav_page, pages[indices[0]])
             for index in indices:
                 if index in (2,5,6,7,8):self.app.button(key='group_nav_'+str(index)).click().run()
-                self.assertEqual(self.field('radio', 'Primary navigation').value, destination)
+                self.assertEqual(self.app.session_state.nav_primary, destination)
                 self.assertFalse(self.app.exception)
 
     def test_primary_navigation_retains_unsaved_inputs(self):
@@ -42,20 +43,20 @@ class PrimaryNavigationTests(unittest.TestCase):
 
     def test_policy_entry_and_group_shortcut(self):
         self.field('text_input', 'Ask Forces HQ').input('meal on duty')
-        self.field('button', 'Ask Forces HQ').click().run()
-        self.assertEqual(self.field('radio', 'Primary navigation').value, 'Policy')
+        self.field('button', 'Open Ask').click().run()
+        self.assertEqual(self.app.session_state.nav_primary, 'Ask')
         self.go('Career')
         self.field('button', 'Achievements').click().run()
         self.assertEqual(self.app.session_state.nav_page, '✍️ Achievement assistant')
         self.assertFalse(self.app.exception)
 
     def test_all_dashboard_cards_have_useful_destinations(self):
-        for label,target in [('Claims\nCheck allowances','🎯 Entitlements'),('Pay\nYour money overview','💷 My money'),('Pensions\nExplore your scheme','💷 My money'),('Career\nYour next step','📅 My career')]:
+        for label,target in [('Your pay','💷 My money'),('Pension','🏦 Pension planner'),('Learning','📅 My career')]:
             self.go('Home')
             self.field('button',label).click().run()
             self.assertEqual(self.app.session_state.nav_page,target)
             self.assertFalse(self.app.exception)
         self.go('Home')
-        self.field('button','Housing\nPlan a home purchase').click().run()
+        self.field('button','Housing').click().run()
         self.assertEqual(self.app.session_state.active_journey,'fhtb')
         self.assertFalse(self.app.exception)

@@ -1,3 +1,4 @@
+from ui_helpers import select_primary
 from datetime import date
 from pathlib import Path
 import unittest
@@ -13,8 +14,8 @@ class GuidedJourneyTests(unittest.TestCase):
  def setUp(self):self.app=AppTest.from_file(str(APP),default_timeout=30).run()
  def widget(self,kind,label):return next(w for w in getattr(self.app,kind) if w.label==label)
  def click(self,label):self.widget('button',label).click().run();self.assertFalse(self.app.exception)
- def go(self,name):self.widget('radio','Primary navigation').set_value(name).run();self.assertFalse(self.app.exception)
- def open_fhtb(self):self.go('Home');self.click('Housing\nPlan a home purchase')
+ def go(self,name):select_primary(self.app,name);self.assertFalse(self.app.exception)
+ def open_fhtb(self):self.go('Home');self.click('Housing')
  def test_complete_preparation_flow_and_context_return(self):
   self.open_fhtb();self.click('Continue')
   self.assertTrue(any('Unable to verify entitlement' in m.value for m in self.app.info))

@@ -1,3 +1,4 @@
+from ui_helpers import select_primary
 """Session and calculation regression tests; all entered data is fictional."""
 from datetime import date
 from pathlib import Path
@@ -21,8 +22,8 @@ class AppRegressionTests(unittest.TestCase):
         self.assertEqual(len(self.app.exception), 0, str(self.app.exception))
 
     def page(self, index):
-        destination = {0:'Home',1:'Profile',2:'Money',3:'Claims',4:'Policy',5:'Career',6:'Career',7:'Career',8:'Money'}[index]
-        self.field('radio', 'Primary navigation').set_value(destination).run()
+        destination = {0:'Home',1:'Me',2:'Money',3:'Explore',4:'Ask',5:'Explore',6:'Explore',7:'Explore',8:'Money'}[index]
+        select_primary(self.app,destination)
         if index in (2,5,6,7,8):
             self.app.button(key='group_nav_'+str(index)).click().run()
         self.healthy()
@@ -41,9 +42,9 @@ class AppRegressionTests(unittest.TestCase):
                 self.page(index)
                 self.assertEqual(self.app.session_state.nav_sidebar, self.pages[index])
         self.page(0)
-        self.click('Pensions\nExplore your scheme')
-        self.assertEqual(self.app.session_state.nav_page, self.pages[2])
-        self.assertEqual(self.app.session_state.nav_sidebar, self.pages[2])
+        self.click('Pension')
+        self.assertEqual(self.app.session_state.nav_page, self.pages[8])
+        self.assertEqual(self.app.session_state.nav_sidebar, self.pages[8])
 
     def test_budget_and_savings_survive_navigation(self):
         self.page(2)
@@ -309,8 +310,7 @@ class AppRegressionTests(unittest.TestCase):
         self.page(2)
         self.field('number_input', 'Monthly take-home income (£)').set_value(3500).run()
         other = AppTest.from_file(str(APP), default_timeout=30).run()
-        nav = next(x for x in other.radio if x.label == 'Primary navigation')
-        nav.set_value('Money').run()
+        select_primary(other,'Money')
         other.button(key='group_nav_2').click().run()
         self.assertEqual(next(x.value for x in other.number_input if x.label == 'Monthly take-home income (£)'), 2600)
 

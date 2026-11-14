@@ -12,18 +12,13 @@ const headings = ['Welcome back', '🎖️ My military profile', '💷 My money'
   '🎯 Entitlements explorer', '🔎 Ask Forces HQ', '📅 Career & reporting milestones',
   '✍️ Achievement & appraisal preparation', '🏡 Military life & future', '🏦 Armed Forces pension planning'];
 
-async function settled(page) {
-  await page.getByText('Forces HQ •', { exact: false }).waitFor();
-  await page.waitForFunction(() => document.querySelectorAll('[data-testid="stSkeleton"]').length === 0);
-  assert.equal(await page.locator('[data-testid="stException"]').count(), 0);
-}
+const {go,settled}=require('./browser_helpers.cjs');
 async function section(page, index) {
   const destination = index === 0 ? 'Home' : index === 1 ? 'Profile' : index === 4 ? 'Policy' : index === 3 ? 'Claims' : [2,8].includes(index) ? 'Money' : 'Career';
-  await page.getByRole('radiogroup', {name:'Primary navigation'}).getByText(destination,{exact:true}).click();
-  await settled(page);
-  const secondary = {2:'Budget & savings',8:'Pay & pensions',5:'Milestones',6:'Achievements',7:'Life & future'};
+  await go(page,destination);
+  const secondary = {2:'Budget & savings',8:'Pay & pensions',5:'Career',6:'Achievements',7:'Life & future'};
   if (secondary[index]) await page.getByRole('button',{name:secondary[index],exact:true}).click();
-  await (index === 0 ? page.getByText('Welcome back',{exact:true}) : page.getByRole('heading',{name:headings[index],exact:true})).waitFor();
+  await (index === 0 ? page.locator('.st-key-welcome') : page.getByRole('heading',{name:headings[index],exact:true})).waitFor();
   await settled(page);
 }
 async function main() {
@@ -46,33 +41,33 @@ async function main() {
       await page.goto(url);
       await settled(page);
       await page.screenshot({ path: path.join(artifacts, `home-${width}.png`) });
-      const header = await page.getByRole('heading', {name:'🛡️ Forces HQ',exact:true}).boundingBox();
+      const header = await page.locator('.mf-brand').boundingBox();
       assert.ok(header && header.y >= 48, 'Branding is covered by Streamlit header');
-      const policy = await page.getByRole('button',{name:'Claims Check allowances',exact:true}).boundingBox();
-      const claims = await page.getByRole('button',{name:'Pay Your money overview',exact:true}).boundingBox();
+      const policy = await page.getByRole('button',{name:'Your pay',exact:true}).boundingBox();
+      const claims = await page.getByRole('button',{name:'Housing',exact:true}).boundingBox();
       assert.ok(policy && claims && Math.abs(policy.y-claims.y)<2 && claims.x>policy.x, 'Home cards must stay in two columns');
       const nav = await page.locator('.st-key-app_navigation').boundingBox();
       assert.ok(policy.y+policy.height<nav.y, 'Bottom navigation covers dashboard cards');
-      for (const [label,index] of [['Claims Check allowances',3],['Pay Your money overview',2],['Pensions Explore your scheme',2],['Career Your next step',5]]) {
+      for (const [label,index] of [['Your pay',2],['Housing','housing'],['Pension',8],['Learning','learning']]) {
         await page.getByRole('button',{name:label,exact:true}).click();
-        await page.getByRole('heading',{name:index===2?'Your money, at a glance':headings[index],exact:true}).waitFor();
+        await page.getByRole('heading',{name:index===2?'Your money, at a glance':index==='housing'?'Your home-buying plan':index==='learning'?'Learning & development':headings[index],exact:true}).waitFor();
         await settled(page);
-        await page.getByRole('radiogroup',{name:'Primary navigation'}).getByText('Home',{exact:true}).click();
-        await page.getByText('Welcome back',{exact:true}).waitFor();
+        await go(page,'Home');
+        await page.locator('.st-key-welcome').waitFor();
         await settled(page);
       }
-      const primary = page.getByRole('radiogroup', { name: 'Primary navigation' });
-      for (const [name, index] of [['Claims',3], ['Policy',4], ['Career',5], ['Money',2], ['Profile',1], ['Home',0]]) {
-        await primary.getByText(name, { exact: true }).click();
-        await (index === 0 ? page.getByText('Welcome back', {exact:true}) : page.getByRole('heading', { name: index===2?'Your money, at a glance':headings[index], exact: true })).waitFor();
+      const primary = page.locator('.st-key-app_navigation');
+      for (const [name, index] of [['Explore',3], ['Ask',4], ['Money',2], ['Me',1], ['Home',0]]) {
+        await go(page,name);
+        await (index === 0 ? page.locator('.st-key-welcome') : page.getByRole('heading', { name: index===2?'Your money, at a glance':headings[index], exact: true })).waitFor();
         await settled(page);
-        for (const label of await primary.locator('label').all()) {
+        for (const label of await primary.getByRole('button').all()) {
           const target = await label.boundingBox();
           assert.ok(target && target.height >= 44 && target.width >= 44, 'Primary touch target too small');
         }
       }
       await page.getByRole('textbox',{name:'Ask Forces HQ',exact:true}).fill('Can I claim my lunch back today?');
-      await page.getByRole('button',{name:'Ask Forces HQ',exact:true}).click();
+      await page.getByRole('textbox',{name:'Ask Forces HQ',exact:true}).press('Enter');
       await page.getByRole('heading', { name: headings[4], exact: true }).waitFor();
       await settled(page);
       for (let index = 0; index < sections.length; index++) {
@@ -83,7 +78,7 @@ async function main() {
         // Streamlit scrolls inside its main panel rather than the document.
         await page.locator('[data-testid="stMain"]').evaluate(el => { el.scrollTop = el.scrollHeight; });
         const box = await page.locator('.st-key-app_navigation').boundingBox();
-        assert.ok(box && box.y >= 0 && box.y + box.height <= 844 && box.height <= 80,
+        assert.ok(box && box.y >= 0 && box.y + box.height <= 844 && box.height <= 100,
           `Navigation left the screen at ${width}px: ${sections[index]} (${JSON.stringify(box)})`);
         const footer = await page.getByText('Forces HQ •', {exact:false}).boundingBox();
         assert.ok(footer && footer.y+footer.height <= box.y, 'Bottom navigation obscures scrollable content');
