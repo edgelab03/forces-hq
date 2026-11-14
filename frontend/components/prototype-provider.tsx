@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { initialConversation, isConversation, sendMessage, type Conversation } from '@/lib/conversation';
+import { initialConversation, sendMessage, type Conversation } from '@/lib/conversation';
 
 type Context = {
   conversation: Conversation;
@@ -21,21 +21,10 @@ export function PrototypeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      const raw = sessionStorage.getItem(storageKey);
-      if (raw) {
-        const saved = JSON.parse(raw);
-        if (isConversation(saved.conversation)) setConversation(saved.conversation);
-        if (typeof saved.draft === 'string') setDraft(saved.draft.slice(0, 1000));
-      }
+      sessionStorage.removeItem(storageKey);
     } catch { /* A storage-restricted tab can still use the in-memory demo. */ }
     setReady(true);
   }, []);
-
-  useEffect(() => {
-    if (!ready) return;
-    try { sessionStorage.setItem(storageKey, JSON.stringify({ conversation, draft })); }
-    catch { /* No account or remote persistence is required. */ }
-  }, [conversation, draft, ready]);
 
   function send(text: string) {
     if (!text.trim()) return;

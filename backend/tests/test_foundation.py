@@ -3,6 +3,7 @@ from copy import deepcopy
 from datetime import date
 import json
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 import profile_backup
@@ -142,6 +143,13 @@ class FoundationTests(unittest.TestCase):
     def test_openapi_contract_has_no_public_file_or_diagnostic_endpoint(self):
         paths = self.app.openapi()['paths']
         self.assertEqual(set(paths), {'/healthz', '/v1/capabilities', '/v1/profile/options', '/v1/profile/validate', '/v1/profile', '/v1/profile/backup/export', '/v1/profile/backup/restore'})
+
+    def test_unexpected_library_error_is_sanitised_without_rethrowing_payload(self):
+        with patch('backend.api.profile_backup.save', side_effect=RuntimeError('PRIVATE-SENTINEL')):
+            response = self.client.post('/v1/profile/backup/export', json={'document': document(), 'passphrase': PASSWORD})
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.json(), {'error': {'code': 'internal_error'}})
+        self.assertNotIn('PRIVATE-SENTINEL', response.text)
 
 
 if __name__ == '__main__': unittest.main()

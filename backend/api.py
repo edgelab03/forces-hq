@@ -23,9 +23,12 @@ class PrivacyBoundary:
         if scope['type'] != 'http':
             return await self.app(scope, receive, send)
         headers = dict(scope.get('headers', []))
+        started = False
 
         async def private_send(message):
+            nonlocal started
             if message['type'] == 'http.response.start':
+                started = True
                 message['headers'] = list(message.get('headers', [])) + [
                     (b'cache-control', b'no-store, private'),
                     (b'x-content-type-options', b'nosniff'),
@@ -35,6 +38,15 @@ class PrivacyBoundary:
 
         async def reject(status, code):
             await JSONResponse({'error': {'code': code}}, status_code=status)(scope, receive, private_send)
+
+        async def invoke(child_receive):
+            try:
+                await self.app(scope, child_receive, private_send)
+            except Exception:
+                # Unexpected serializers/library errors must not log raw profile
+                # values or decrypted content through an ASGI traceback.
+                if not started:
+                    await reject(500, 'internal_error')
 
         if scope['path'] != '/healthz' and not hmac.compare_digest(headers.get(b'authorization', b''), b'Bearer ' + self.token.encode()):
             return await reject(401, 'unauthorised')
@@ -57,8 +69,8 @@ class PrivacyBoundary:
 
             async def replay():
                 return {'type': 'http.request', 'body': bytes(body), 'more_body': False}
-            return await self.app(scope, replay, private_send)
-        return await self.app(scope, receive, private_send)
+            return await invoke(replay)
+        return await invoke(receive)
 
 
 def profile_response(document):

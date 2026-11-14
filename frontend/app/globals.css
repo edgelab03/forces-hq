@@ -216,3 +216,35 @@ html[data-keyboard="true"] .composer-area { padding-bottom: max(8px, env(safe-ar
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
+
+/* Connected Stage A surfaces reuse the approved Modern Forces tokens. */
+.profile-scroll { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; padding: 22px; }
+.profile-intro, .profile-form, .profile-sections, .profile-scroll>.connection-alert, .saved-notice { max-width: 740px; margin-inline: auto; }
+.profile-intro h2 { font-size: 27px; letter-spacing: -.8px; margin: 16px 0 8px; }
+.profile-intro>p, .profile-card>p, .onboarding-card p { color: var(--muted); font-size: 12px; line-height: 1.8; }
+.profile-sections { display: flex; gap: 5px; padding: 18px 0; overflow-x: auto; }
+.profile-sections a { min-height: 44px; padding: 12px 10px; font-size: 11px; font-weight: 650; border-radius: 12px; white-space: nowrap; }
+.profile-sections a[aria-current] { background: var(--mint); }
+.profile-form { display: grid; gap: 16px; padding-bottom: 16px; }
+.profile-form fieldset { padding: 0; border: 0; margin: 0; min-width: 0; display: grid; gap: 16px; }
+.profile-card { padding: 20px; border: 1px solid var(--line); border-radius: var(--radius); background: white; box-shadow: var(--shadow); }
+.profile-card h2 { font-size: 18px; letter-spacing: -.4px; margin-bottom: 10px; }
+.profile-card form { display: grid; gap: 14px; margin-top: 18px; }
+.profile-grid { display: grid; gap: 16px; margin-top: 18px; }
+.profile-field { display: grid; gap: 7px; margin-top: 12px; font-size: 12px; font-weight: 650; min-width: 0; }
+.profile-field input, .profile-field select { min-height: 48px; width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid #D6DFD3; border-radius: 12px; background: var(--ivory); color: var(--ink); font-size: 16px; }
+.profile-field input[type=file] { padding: 10px; font-size: 12px; }
+.profile-check { display: flex; align-items: flex-start; gap: 9px; padding: 12px 0; font-size: 12px; line-height: 1.7; min-height: 44px; }
+.profile-check input { width: 20px; height: 20px; accent-color: var(--forest); flex-shrink: 0; }
+.field-note { font-size: 11px; color: var(--muted); line-height: 1.8; margin-top: 12px; }
+.connection-alert { border: 1px solid #D9BBA3; border-radius: 16px; padding: 16px; background: #FAEFE4; color: #673E25; font-size: 12px; line-height: 1.8; margin-bottom: 16px; }
+.saved-notice { padding: 16px; margin-bottom: 16px; border: 1px solid #C3D4BD; border-radius: 16px; background: var(--mint); font-size: 12px; line-height: 1.8; }
+.profile-timeline { list-style: none; padding: 0; display: grid; gap: 10px; }
+.profile-timeline li { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.profile-timeline small { display: block; color: var(--muted); margin-top: 5px; }
+.onboarding-card { display: flex; gap: 12px; padding: 14px; background: var(--mint); border: 1px solid #D4DECC; border-radius: var(--radius); margin-bottom: 14px; }
+.onboarding-card h2 { font-size: 15px; margin-bottom: 5px; }
+.profile-summary-line { font-size: 13px; line-height: 1.8; margin-bottom: 15px; }
+.confirmed-salary { display: block; font-size: 28px; margin-top: 6px; letter-spacing: -.8px; }
+.saved-journey-title { font-size: 15px; }
+@media (min-width: 700px) { .profile-scroll { padding: 28px 40px; } .profile-grid { grid-template-columns: 1fr 1fr; } }

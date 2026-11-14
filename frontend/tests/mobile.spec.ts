@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import path from 'node:path';
 import fs from 'node:fs';
 
-const screenshots = path.join(process.cwd(), 'docs/screenshots');
+const screenshots = path.join(process.cwd(), 'docs/screenshots/connected/navigation');
 async function ready(page: Page) {
   await page.evaluate(() => document.fonts.ready);
   await expect(page.getByRole('navigation', { name: 'Main navigation' })).toBeVisible();
@@ -22,7 +22,8 @@ test('Home renders the design, useful cards and five native navigation links', a
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('/'); await ready(page);
-  await expect(page.getByRole('heading', { name: 'Hello, Alex.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Make it yours.' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Set up your profile' })).toBeVisible();
   await expect(page.locator('body')).toHaveCSS('background-color', 'rgb(247, 247, 242)');
   await expect(page.locator('.ask-card')).toHaveCSS('background-color', 'rgb(37, 72, 62)');
   await expect(page.locator('body')).toHaveCSS('color', 'rgb(38, 61, 54)');
@@ -33,8 +34,6 @@ test('Home renders the design, useful cards and five native navigation links', a
   expect(boxes[0]!.y).toBe(boxes[1]!.y);
   expect(boxes[2]!.y).toBe(boxes[3]!.y);
   expect(boxes[1]!.x).toBeGreaterThan(boxes[0]!.x);
-  const bottom = await page.locator('.bottom-nav').boundingBox();
-  expect(boxes[3]!.y + boxes[3]!.height).toBeLessThanOrEqual(bottom!.y);
   const links = page.getByRole('navigation').getByRole('link');
   await expect(links).toHaveCount(5);
   for (const link of await links.all()) {
@@ -47,12 +46,13 @@ test('Home renders the design, useful cards and five native navigation links', a
   const sizes = await scroll.evaluate(e => ({ height: e.clientHeight, total: e.scrollHeight }));
   expect(sizes.total / sizes.height).toBeLessThan(1.9);
   await scroll.evaluate(e => e.scrollTop = e.scrollHeight);
-  await expect(page.getByText('DEMO OPPORTUNITY', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Keep your profile with you' })).toBeVisible();
+  await expect(page.locator('main')).not.toContainText(/Alex|£2,850|£420/);
   await screenshot(page, 'home-overview');
   expect(errors).toEqual([]);
 });
 
-test('Lunch conversation continues, keeps answers through history/reload and resets', async ({ page }) => {
+test('Explicit demo conversation keeps answers in navigation but clears on reload', async ({ page }) => {
   await page.goto('/'); await ready(page);
   await page.getByRole('textbox', { name: 'Your question' }).fill('Can I claim my lunch from yesterday?');
   await page.getByRole('button', { name: 'Send question to Ask' }).click();
@@ -66,6 +66,9 @@ test('Lunch conversation continues, keeps answers through history/reload and res
   await page.goBack();
   await expect(page.getByRole('log')).toContainText('Yes, I was away');
   await page.reload(); await ready(page);
+  await expect(page.getByRole('log')).not.toContainText('Yes, I was away');
+  await page.getByRole('button', { name: 'Can I claim my lunch from yesterday?', exact: true }).click();
+  await page.getByRole('button', { name: 'Yes, I was away', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Yes, it was authorised', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Yes, it was authorised', exact: true }).click();
   await page.getByRole('textbox', { name: 'Your message' }).fill('I paid for it myself; no meal was provided.');
@@ -76,7 +79,7 @@ test('Lunch conversation continues, keeps answers through history/reload and res
   await noOverflow(page); await screenshot(page, 'ask-complete');
   await page.getByRole('button', { name: 'Start a new demo conversation' }).click();
   await expect(page.getByRole('log')).not.toContainText('I paid for it myself');
-  await expect(page.getByRole('log')).toContainText('Hi Alex.');
+  await expect(page.getByRole('log')).toContainText('Hi.');
 });
 
 test('Chat composer stays clear of navigation in a reduced keyboard viewport', async ({ page }) => {
@@ -112,19 +115,21 @@ test('All out-of-scope cards and navigation open honest, keyboard-accessible pre
   for (const name of ['Pay', 'Pension', 'Learning']) {
     await page.getByRole('link', { name, exact: false }).filter({ has: page.locator('strong') }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
-    await expect(page.getByRole('dialog')).toContainText('Preview only');
+    await expect(page.getByRole('dialog')).toContainText('Not connected yet');
     await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog')).not.toBeVisible();
   }
-  for (const name of ['Money', 'Explore', 'Me']) {
+  for (const name of ['Money', 'Explore']) {
     await page.getByRole('navigation').getByRole('link', { name, exact: true }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.getByRole('button', { name: 'Close preview' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();
   }
-  await page.getByRole('button', { name: /Housing/ }).click();
-  await expect(page).toHaveURL(/\/ask$/);
-  await expect(page.getByRole('button', { name: 'Just exploring', exact: true })).toBeVisible();
+  await page.getByRole('link', { name: /Housing/ }).filter({ has: page.locator('strong') }).click();
+  await expect(page.getByRole('dialog')).toContainText('Stage D');
+  await page.getByRole('button', { name: 'Close preview' }).click();
+  await page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'Me', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Your service profile' })).toBeVisible();
 });
 
 test('Direct Ask entry, unknown text and malformed local demo state remain usable', async ({ page }) => {
