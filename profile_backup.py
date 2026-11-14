@@ -7,6 +7,7 @@ import base64
 from datetime import date
 import json
 import os
+from benefit_journeys import restore_benefits
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -15,7 +16,7 @@ MAGIC=b'FHQ1\n'
 MAX_SIZE=128*1024
 CHOICES={
  'service':['British Army','Royal Navy','Royal Air Force','Royal Marines'],
- 'rank':['Private / equivalent','Lance Corporal / equivalent','Corporal / equivalent','Sergeant','Staff Sergeant','Warrant Officer','Commissioned Officer'],
+ 'rank':['Private / equivalent','Lance Corporal / equivalent','Corporal / equivalent','Sergeant','Staff Sergeant','Warrant Officer','Warrant Officer Class 2','Warrant Officer Class 1','Commissioned Officer'],
  'report':['SJAR','OJAR'], 'employment_type':['Regular','Reserve','FTRS','Not specified'],
  'transfer_history':['None / not recorded','Transfer / break in service','Commissioned from ranks','Other history — check statement'],
  'posting':['Not specified','No planned move','Upcoming assignment / move'],
@@ -62,6 +63,7 @@ def validate(payload):
         if not isinstance(event,dict) or set(event)!= {'label','date'} or event['label'] not in EVENT_LABELS:raise ValueError('Invalid milestone')
         event['date']=date.fromisoformat(event['date'])
         if not date(1940,1,1)<=event['date']<=date(2080,12,31):raise ValueError('Invalid milestone date')
+    payload['benefits']=restore_benefits(payload.get('benefits'))
     return payload
 
 
@@ -70,7 +72,7 @@ def _key(password,salt):
     return base64.urlsafe_b64encode(kdf.derive(password.encode('utf-8')))
 
 
-def save(profile,events,password):
+def save(profile,events,password,benefits=None):
     if len(password)<12:raise ValueError('Use a passphrase of at least 12 characters')
     chosen={k:v for k,v in profile.items() if k in FIELDS}
     # Unknown/old accommodation vocabulary stays session-only rather than
@@ -78,6 +80,7 @@ def save(profile,events,password):
     if chosen.get('accommodation_type') not in CHOICES['accommodation_type']:chosen.pop('accommodation_type',None)
     if 'rank_history' in chosen:chosen['rank_history']=[{'rank':e['rank'],'date':str(e['date'])} for e in chosen['rank_history']]
     payload={'version':1,'profile':chosen,'events':[{'label':e['label'],'date':str(e['date'])} for e in events]}
+    payload['benefits']=restore_benefits(benefits)
     raw=json.dumps(payload,default=str,allow_nan=False).encode()
     validate(json.loads(raw))
     if len(raw)>MAX_SIZE//2:raise ValueError('Profile backup is too large')

@@ -30,12 +30,14 @@ class PrimaryNavigationTests(unittest.TestCase):
         self.go('Profile')
         self.field('text_input', 'Trade / role (optional)').input('Fictional draft role').run()
         self.go('Money')
+        self.app.button(key='group_nav_2').click().run()
         self.field('number_input', 'Monthly take-home income (£)').set_value(3600).run()
         self.go('Claims')
         self.go('Home')
         self.go('Profile')
         self.assertEqual(self.field('text_input', 'Trade / role (optional)').value, 'Fictional draft role')
         self.go('Money')
+        self.app.button(key='group_nav_2').click().run()
         self.assertEqual(self.field('number_input', 'Monthly take-home income (£)').value, 3600)
 
     def test_policy_entry_and_group_shortcut(self):
@@ -48,8 +50,12 @@ class PrimaryNavigationTests(unittest.TestCase):
         self.assertFalse(self.app.exception)
 
     def test_all_dashboard_cards_have_useful_destinations(self):
-        for label, target in [('Policy\nFind JSP answers', '📚 JSP finder'), ('Claims\nCheck allowances', '🎯 Entitlements'), ('Money\nPay and pensions', '🏦 Pension planner'), ('Career\nPersonal development', '📅 My career')]:
+        for label,target in [('Claims\nCheck allowances','🎯 Entitlements'),('Pay\nYour money overview','💷 My money'),('Pensions\nExplore your scheme','💷 My money'),('Career\nYour next step','📅 My career')]:
             self.go('Home')
-            self.field('button', label).click().run()
-            self.assertEqual(self.app.session_state.nav_page, target)
+            self.field('button',label).click().run()
+            self.assertEqual(self.app.session_state.nav_page,target)
             self.assertFalse(self.app.exception)
+        self.go('Home')
+        self.field('button','Housing\nPlan a home purchase').click().run()
+        self.assertEqual(self.app.session_state.active_journey,'fhtb')
+        self.assertFalse(self.app.exception)

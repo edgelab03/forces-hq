@@ -48,14 +48,14 @@ async function main() {
       await page.screenshot({ path: path.join(artifacts, `home-${width}.png`) });
       const header = await page.getByRole('heading', {name:'🛡️ Forces HQ',exact:true}).boundingBox();
       assert.ok(header && header.y >= 48, 'Branding is covered by Streamlit header');
-      const policy = await page.getByRole('button', {name:'Policy Find JSP answers',exact:true}).boundingBox();
-      const claims = await page.getByRole('button', {name:'Claims Check allowances',exact:true}).boundingBox();
+      const policy = await page.getByRole('button',{name:'Claims Check allowances',exact:true}).boundingBox();
+      const claims = await page.getByRole('button',{name:'Pay Your money overview',exact:true}).boundingBox();
       assert.ok(policy && claims && Math.abs(policy.y-claims.y)<2 && claims.x>policy.x, 'Home cards must stay in two columns');
       const nav = await page.locator('.st-key-app_navigation').boundingBox();
       assert.ok(policy.y+policy.height<nav.y, 'Bottom navigation covers dashboard cards');
-      for (const [label,index] of [['Policy Find JSP answers',4],['Claims Check allowances',3],['Money Pay and pensions',8],['Career Personal development',5]]) {
+      for (const [label,index] of [['Claims Check allowances',3],['Pay Your money overview',2],['Pensions Explore your scheme',2],['Career Your next step',5]]) {
         await page.getByRole('button',{name:label,exact:true}).click();
-        await page.getByRole('heading',{name:headings[index],exact:true}).waitFor();
+        await page.getByRole('heading',{name:index===2?'Your money, at a glance':headings[index],exact:true}).waitFor();
         await settled(page);
         await page.getByRole('radiogroup',{name:'Primary navigation'}).getByText('Home',{exact:true}).click();
         await page.getByText('Welcome back',{exact:true}).waitFor();
@@ -64,7 +64,7 @@ async function main() {
       const primary = page.getByRole('radiogroup', { name: 'Primary navigation' });
       for (const [name, index] of [['Claims',3], ['Policy',4], ['Career',5], ['Money',2], ['Profile',1], ['Home',0]]) {
         await primary.getByText(name, { exact: true }).click();
-        await (index === 0 ? page.getByText('Welcome back', {exact:true}) : page.getByRole('heading', { name: headings[index], exact: true })).waitFor();
+        await (index === 0 ? page.getByText('Welcome back', {exact:true}) : page.getByRole('heading', { name: index===2?'Your money, at a glance':headings[index], exact: true })).waitFor();
         await settled(page);
         for (const label of await primary.locator('label').all()) {
           const target = await label.boundingBox();

@@ -41,9 +41,9 @@ class AppRegressionTests(unittest.TestCase):
                 self.page(index)
                 self.assertEqual(self.app.session_state.nav_sidebar, self.pages[index])
         self.page(0)
-        self.click('Money\nPay and pensions')
-        self.assertEqual(self.app.session_state.nav_page, self.pages[8])
-        self.assertEqual(self.app.session_state.nav_sidebar, self.pages[8])
+        self.click('Pensions\nExplore your scheme')
+        self.assertEqual(self.app.session_state.nav_page, self.pages[2])
+        self.assertEqual(self.app.session_state.nav_sidebar, self.pages[2])
 
     def test_budget_and_savings_survive_navigation(self):
         self.page(2)
@@ -107,12 +107,11 @@ class AppRegressionTests(unittest.TestCase):
     def test_search_and_conditional_answers_survive_navigation(self):
         self.page(4)
         self.field('text_input', 'What do you need help with?').input('Can I claim mileage for duty travel?').run()
-        self.field('selectbox', 'What sort of journey was this?').select('Authorised duty journey').run()
-        self.field('selectbox', 'Was the journey / private vehicle authorised where required?').select('No').run()
-        self.assertTrue(any('not confirmed' in info.value for info in self.app.info))
+        self.app.session_state.decision_facts={'mileage':{'mileage.approved':{'value':'No','provenance':'user_confirmed'}}}
         self.round_trip(4)
-        self.assertEqual(self.field('selectbox', 'What sort of journey was this?').value, 'Authorised duty journey')
-        self.assertEqual(self.field('selectbox', 'Was the journey / private vehicle authorised where required?').value, 'No')
+        self.assertEqual(self.field('text_input','What do you need help with?').value,'Can I claim mileage for duty travel?')
+        self.assertEqual(self.app.session_state.decision_facts['mileage']['mileage.approved']['value'],'No')
+        self.assertTrue(any('Unable to verify entitlement' in m.value for m in self.app.markdown))
 
     def test_filters_and_life_planning_survive_navigation(self):
         self.page(3)
@@ -312,6 +311,7 @@ class AppRegressionTests(unittest.TestCase):
         other = AppTest.from_file(str(APP), default_timeout=30).run()
         nav = next(x for x in other.radio if x.label == 'Primary navigation')
         nav.set_value('Money').run()
+        other.button(key='group_nav_2').click().run()
         self.assertEqual(next(x.value for x in other.number_input if x.label == 'Monthly take-home income (£)'), 2600)
 
 

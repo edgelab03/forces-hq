@@ -125,3 +125,6 @@ Small controlled cohort with non-sensitive data; accessibility/security/usabilit
 6. Measured performance test environment and beta usability recruitment.
 
 **Scope authority:** This document guides future work but never overrides official MOD instructions or legislation.
+## V1 product requirements
+
+The ASK → ASSESS → EXPLAIN → EVIDENCE → ACT experience, personalised benefit statuses, FHTB priority journey, separate RLE check, Learning Credits requirements, persistence limits and release/migration gates are retained in [docs/V1_PRODUCT_PLAN.md](docs/V1_PRODUCT_PLAN.md). No policy approval or release readiness is implied by this requirements extension.
